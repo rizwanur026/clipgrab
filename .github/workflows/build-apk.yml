@@ -32,6 +32,75 @@ jobs:
           JSON
           npx cap add android
           npx cap sync android
+          sed -i 's#</manifest>#<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" /></manifest>#' android/app/src/main/AndroidManifest.xml
+          cat > android/app/src/main/java/com/clipgrab/app/MainActivity.java <<'JAVA'
+          package com.clipgrab.app;
+
+          import android.app.DownloadManager;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.database.Cursor;
+          import android.net.Uri;
+          import android.os.Bundle;
+          import android.os.Environment;
+          import android.webkit.JavascriptInterface;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {
+            @Override
+            public void onCreate(Bundle b) {
+              super.onCreate(b);
+              getBridge().getWebView().addJavascriptInterface(new Native(), "ClipNative");
+            }
+
+            class Native {
+              private DownloadManager dm() { return (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE); }
+
+              private boolean ok(String u) {
+                try {
+                  String h = Uri.parse(u).getHost();
+                  return h != null && (h.equals("clipgrab-53p8.onrender.com") || h.equals("github.com") || h.endsWith(".githubusercontent.com"));
+                } catch (Exception e) { return false; }
+              }
+
+              @JavascriptInterface
+              public long download(String url, String name) {
+                if (!ok(url)) return -1;
+                DownloadManager.Request r = new DownloadManager.Request(Uri.parse(url));
+                r.setTitle(name);
+                r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                r.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name);
+                return dm().enqueue(r);
+              }
+
+              @JavascriptInterface
+              public String status(long id) {
+                Cursor c = dm().query(new DownloadManager.Query().setFilterById(id));
+                try {
+                  if (c != null && c.moveToFirst()) {
+                    return c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)) + ","
+                        + c.getLong(c.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)) + ","
+                        + c.getLong(c.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+                  }
+                } finally { if (c != null) c.close(); }
+                return "0,0,0";
+              }
+
+              @JavascriptInterface
+              public void cancel(long id) { dm().remove(id); }
+
+              @JavascriptInterface
+              public boolean open(long id, String mime) {
+                Uri u = dm().getUriForDownloadedFile(id);
+                if (u == null) return false;
+                Intent i = new Intent(Intent.ACTION_VIEW);
+                i.setDataAndType(u, mime);
+                i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                try { startActivity(i); return true; } catch (Exception e) { return false; }
+              }
+            }
+          }
+          JAVA
           sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/; s/versionName \"1.0\"/versionName \"${{ github.run_number }}\"/" android/app/build.gradle
       - name: Use fixed signing key
         run: |
