@@ -1,6 +1,6 @@
-import os, re, shutil, tempfile
+import os, re, shutil, tempfile, urllib.request
 from urllib.parse import urlparse
-from flask import Flask, request, jsonify, send_file, send_from_directory, after_this_request
+from flask import Flask, request, jsonify, Response, send_file, send_from_directory, after_this_request
 from flask_cors import CORS
 import yt_dlp
 
@@ -24,6 +24,29 @@ def fmt(height, tiktok):
     h = f"[height<={height}]" if height else ""
     return f"bv*{h}{nw}+ba/b{h}{nw}/b"
 
+def est(f, dur):
+    n = f.get("filesize") or f.get("filesize_approx")
+    if not n and f.get("tbr") and dur:
+        n = f["tbr"] * 1000 / 8 * dur
+    return int(n) if n else 0
+
+def qualities(d, tiktok):
+    dur, fs = d.get("duration"), d.get("formats", [])
+    audio = max((f for f in fs if f.get("vcodec") in (None, "none") and f.get("acodec") not in (None, "none")),
+                key=lambda f: f.get("tbr") or 0, default=None)
+    out = []
+    for h in sorted({f["height"] for f in fs if f.get("height")}, reverse=True)[:5]:
+        c = [f for f in fs if f.get("height") == h and f.get("vcodec") not in (None, "none")
+             and not (tiktok and "download" in str(f.get("format_id")))]
+        if not c:
+            continue
+        b = max(c, key=lambda f: f.get("tbr") or 0)
+        size = est(b, dur)
+        if size and b.get("acodec") in (None, "none") and audio:
+            size += est(audio, dur)
+        out.append({"h": h, "size": size})
+    return out
+
 @app.get("/")
 def index():
     for d in (BASE, os.path.join(BASE, "static")):
@@ -41,14 +64,48 @@ def info():
             d = y.extract_info(url, download=False)
     except Exception:
         return jsonify(error="Couldn’t read this link. It may be private or removed."), 422
-    heights = sorted({f["height"] for f in d.get("formats", []) if f.get("height")}, reverse=True)
     return jsonify(
         title=d.get("title") or "Untitled video",
         author=d.get("uploader") or "",
         thumbnail=d.get("thumbnail"),
         duration=d.get("duration"),
-        heights=heights[:5],
+        qualities=qualities(d, "tiktok.com" in url),
     )
+
+@app.get("/api/image")
+def image():
+    url = request.args.get("url", "")
+    if not valid(url):
+        return jsonify(error="Invalid link."), 400
+    try:
+        with yt_dlp.YoutubeDL({"quiet": True, "noplaylist": True}) as y:
+            d = y.extract_info(url, download=False)
+        th = [t for t in d.get("thumbnails", []) if t.get("url")]
+        th = sorted(th, key=lambda t: (t.get("width") or 0) * (t.get("height") or 0))
+        src = th[-1]["url"] if th else d.get("thumbnail")
+        req = urllib.request.Request(src, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            data, ctype = r.read(20_000_000), r.headers.get_content_type()
+    except Exception:
+        return jsonify(error="Couldn’t get the image."), 500
+    ext = {"image/png": "png", "image/webp": "webp"}.get(ctype, "jpg")
+    return Response(data, mimetype=ctype, headers={"Content-Disposition": f"attachment; filename=image.{ext}"})
+
+@app.get("/api/formats")
+def formats():
+    url = request.args.get("url", "")
+    if not valid(url):
+        return jsonify(error="Invalid link."), 400
+    try:
+        with yt_dlp.YoutubeDL({"quiet": True, "noplaylist": True}) as y:
+            d = y.extract_info(url, download=False)
+    except Exception as e:
+        return jsonify(error=str(e)[:300]), 422
+    return jsonify([
+        {"id": f.get("format_id"), "height": f.get("height"), "kbps": round(f.get("tbr") or 0),
+         "codec": f.get("vcodec"), "note": f.get("format_note")}
+        for f in d.get("formats", [])
+    ])
 
 @app.get("/api/download")
 def download():
@@ -63,6 +120,7 @@ def download():
         "outtmpl": os.path.join(tmp, "%(id)s.%(ext)s"),
         "format": fmt(height, "tiktok.com" in url),
         "merge_output_format": "mp4",
+        "format_sort": ["res", "br"],  # biggest resolution first, then highest bitrate
     }
     try:
         with yt_dlp.YoutubeDL(opts) as y:

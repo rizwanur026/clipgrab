@@ -37,6 +37,7 @@ button:disabled{opacity:.6;cursor:wait}
 .chip[aria-pressed=true]{background:var(--mint);border-color:var(--mint);color:#06241f;font-weight:700}
 .go{width:100%;padding:16px;font-size:16px;background:linear-gradient(135deg,var(--accent),#a45cff)}
 .upd{display:none;align-items:center;justify-content:space-between;gap:12px;background:var(--mint);color:#06241f;border-radius:14px;padding:10px 12px 10px 16px;margin:18px 0 0;font-weight:500}.upd.on{display:flex}.upd button{background:#06241f;padding:9px 14px}
+.go2{width:100%;margin-top:10px}
 .note{margin-top:34px;color:var(--mute);font-size:13px}
 </style>
 </head>
@@ -61,6 +62,7 @@ button:disabled{opacity:.6;cursor:wait}
       <p class="meta" id="meta"></p>
       <div class="chips" id="chips"></div>
       <button class="go" id="dl" type="button">Download video</button>
+      <button class="ghost go2" id="img" type="button">Save cover image</button>
     </div>
   </section>
 
@@ -110,7 +112,9 @@ $("fetch").onclick = async () => {
     $("thumb").src = d.thumbnail || "";
     $("title").textContent = d.title;
     $("meta").textContent = [d.author, mmss(d.duration)].filter(Boolean).join("  |  ");
-    const opts = [["best","Best"], ...d.heights.map(h => [String(h), h + "p"])];
+    const sz = n => n ? " (" + (n/1048576 >= 1 ? (n/1048576).toFixed(1) + " MB" : Math.round(n/1024) + " KB") + ")" : "";
+    const qs = d.qualities || [];
+    const opts = [["best", "Best" + (qs[0] ? sz(qs[0].size) : "")], ...qs.map(q => [String(q.h), q.h + "p" + sz(q.size)])];
     quality = "best";
     $("chips").innerHTML = "";
     opts.forEach(([v,l]) => {
@@ -129,6 +133,10 @@ $("dl").onclick = () => {
   $("dl").textContent = "Preparing your file…";
   native ? openExt(u) : (window.location.href = u);
   setTimeout(() => $("dl").textContent = "Download video", 6000);
+};
+$("img").onclick = () => {
+  const u = new URL(API + "/api/image?url=" + encodeURIComponent($("url").value.trim()), location.href).href;
+  native ? openExt(u) : (window.location.href = u);
 };
 $("url").addEventListener("keydown", e => e.key === "Enter" && $("fetch").click());
 </script>
