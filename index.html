@@ -2,143 +2,212 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0c1f">
 <title>ClipGrab – HD video downloader</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0d0f24;--surface:#171a3a;--line:#2a2e5c;--text:#eceeff;--mute:#9aa0d0;--accent:#7c5cff;--mint:#3de0c4;--err:#ff7a8a}
-*{box-sizing:border-box;margin:0}
-body{background:radial-gradient(900px 500px at 80% -10%,#2a2170 0%,transparent 60%),var(--bg);color:var(--text);font:16px/1.6 'DM Sans',system-ui,sans-serif;min-height:100vh;padding:28px 18px 60px}
-main{max-width:560px;margin:0 auto}
-.brand{font:800 20px 'Sora',sans-serif;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
-.brand i{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--mint))}
-h1{font:800 clamp(34px,9vw,52px)/1.05 'Sora',sans-serif;letter-spacing:-.035em;margin:56px 0 14px}
-.sub{color:var(--mute);max-width:44ch;margin-bottom:30px}
-.box{display:flex;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:8px;transition:border-color .2s,box-shadow .2s}
-.box:focus-within{border-color:var(--accent);box-shadow:0 0 0 4px #7c5cff30}
-input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--text);font:inherit;padding:0 10px}
-button{font:700 15px 'Sora',sans-serif;border:0;border-radius:12px;padding:13px 18px;cursor:pointer;color:#fff;background:var(--accent);transition:transform .15s,filter .2s}
-button:hover{filter:brightness(1.12)}button:active{transform:scale(.97)}
+:root{--bg:#0a0c1f;--s1:#141838;--s2:#1c2150;--line:#2c3270;--text:#f0f1ff;--mute:#a3a9d9;--v:#7c5cff;--p:#c15cff;--mint:#3de0c4;--err:#ff7a8a}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html{font-size:18px}
+body{background:var(--bg);color:var(--text);font:1rem/1.6 'DM Sans',system-ui,sans-serif;min-height:100vh;padding:max(22px,env(safe-area-inset-top)) 20px max(40px,env(safe-area-inset-bottom));overflow-x:hidden}
+body::before,body::after{content:"";position:fixed;z-index:-1;border-radius:50%;filter:blur(90px);pointer-events:none}
+body::before{width:420px;height:420px;background:#5a3dff66;top:-140px;right:-120px}
+body::after{width:360px;height:360px;background:#3de0c433;bottom:-120px;left:-120px}
+main{max-width:640px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:center}
+.brand{font:800 1.3rem 'Sora',sans-serif;letter-spacing:-.02em;display:flex;align-items:center;gap:11px}
+.brand i{width:34px;height:34px;border-radius:11px;background:linear-gradient(135deg,var(--v),var(--p) 55%,var(--mint));box-shadow:0 6px 22px #7c5cff77}
+.pill{font-size:.78rem;color:var(--mint);border:1px solid #3de0c455;border-radius:99px;padding:4px 12px}
+.upd{display:none;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,var(--mint),#7df0da);color:#04221c;border-radius:18px;padding:12px 12px 12px 18px;margin-top:20px;font-weight:700}
+.upd.on{display:flex}.upd button{background:#04221c;color:#fff;padding:11px 18px;border-radius:12px;font-size:.9rem}
+h1{font:800 clamp(2.4rem,11vw,3.4rem)/1.04 'Sora',sans-serif;letter-spacing:-.04em;margin:44px 0 14px;animation:in .7s ease both}
+@keyframes in{from{opacity:0;transform:translateY(16px)}}
+.sub{color:var(--mute);font-size:1.05rem;max-width:34ch;margin-bottom:28px}
+.panel{background:linear-gradient(160deg,#1a1f4acc,#12163599);border:1px solid var(--line);border-radius:26px;padding:12px;backdrop-filter:blur(14px);box-shadow:0 24px 60px #0007}
+.row{display:flex;gap:8px;align-items:center;background:#0a0c1f;border:1px solid var(--line);border-radius:18px;padding:6px 6px 6px 16px;transition:.2s}
+.row:focus-within{border-color:var(--v);box-shadow:0 0 0 4px #7c5cff33}
+input{flex:1;min-width:0;height:52px;background:none;border:0;outline:0;color:var(--text);font:inherit}
+button{font:700 1rem 'Sora',sans-serif;border:0;border-radius:14px;cursor:pointer;color:#fff;transition:transform .15s,filter .2s}
+button:active{transform:scale(.97)}button:hover{filter:brightness(1.1)}button:disabled{opacity:.6;cursor:wait}
 button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
-button.ghost{background:#252a5a;color:var(--text)}
-button:disabled{opacity:.6;cursor:wait}
-.msg{margin-top:14px;color:var(--err);min-height:24px;font-size:15px}
-.card{display:none;margin-top:22px;background:var(--surface);border:1px solid var(--line);border-radius:22px;overflow:hidden}
-.card.on{display:block;animation:rise .45s ease}
-@keyframes rise{from{opacity:0;transform:translateY(14px)}}
-@media(prefers-reduced-motion:reduce){.card.on{animation:none}}
-.thumb{width:100%;aspect-ratio:16/10;object-fit:cover;background:#0d0f24;display:block}
-.body{padding:20px}
-.title{font:700 18px/1.35 'Sora',sans-serif;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.meta{color:var(--mute);font-size:14px;margin:6px 0 18px}
-.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
-.chip{background:none;border:1px solid var(--line);color:var(--mute);padding:8px 14px;border-radius:999px;font:500 14px 'DM Sans',sans-serif}
-.chip[aria-pressed=true]{background:var(--mint);border-color:var(--mint);color:#06241f;font-weight:700}
-.go{width:100%;padding:16px;font-size:16px;background:linear-gradient(135deg,var(--accent),#a45cff)}
-.upd{display:none;align-items:center;justify-content:space-between;gap:12px;background:var(--mint);color:#06241f;border-radius:14px;padding:10px 12px 10px 16px;margin:18px 0 0;font-weight:500}.upd.on{display:flex}.upd button{background:#06241f;padding:9px 14px}
-.go2{width:100%;margin-top:10px}
-.note{margin-top:34px;color:var(--mute);font-size:13px}
+.paste{height:48px;padding:0 18px;background:var(--s2)}
+.big{width:100%;height:62px;margin-top:10px;font-size:1.08rem;background:linear-gradient(135deg,var(--v),var(--p));box-shadow:0 10px 30px #7c5cff55}
+.ghost{background:var(--s2);color:var(--text)}
+.det{height:1.4em;margin:10px 6px 0;font-size:.9rem;color:var(--mint)}
+.msg{color:var(--err);margin:12px 4px 0;min-height:1.5em;font-size:.95rem}
+.perks{display:flex;flex-wrap:wrap;gap:8px 20px;margin:22px 4px 0;color:var(--mute);font-size:.95rem}
+.perks span::before{content:"✓";color:var(--mint);font-weight:700;margin-right:7px}
+.sk{display:none;margin-top:22px;height:300px;border-radius:26px;background:linear-gradient(100deg,var(--s1) 30%,var(--s2) 50%,var(--s1) 70%) 0 0/300% 100%;animation:sh 1.2s linear infinite}
+.sk.on{display:block}@keyframes sh{to{background-position:-300% 0}}
+.card{display:none;margin-top:22px;background:var(--s1);border:1px solid var(--line);border-radius:26px;overflow:hidden;box-shadow:0 24px 60px #0007}
+.card.on{display:block;animation:in .45s ease}
+.tw{position:relative}.thumb{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:#0a0c1f}
+.tw::after{content:"";position:absolute;inset:50% 0 0;background:linear-gradient(transparent,var(--s1))}
+.dur{position:absolute;right:14px;bottom:14px;z-index:1;background:#000a;border-radius:99px;padding:3px 12px;font-size:.85rem}
+.body{padding:6px 20px 22px}
+.title{font:700 1.2rem/1.35 'Sora',sans-serif;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.meta{color:var(--mute);margin:4px 0 18px}
+.chips{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px}
+.chip{background:none;border:1.5px solid var(--line);color:var(--mute);padding:11px 18px;border-radius:99px;font:500 .95rem 'DM Sans',sans-serif}
+.chip[aria-pressed=true]{background:var(--mint);border-color:var(--mint);color:#04221c;font-weight:700}
+.sec{width:100%;height:54px;margin-top:10px}
+h2{font:700 1.1rem 'Sora',sans-serif;margin:34px 4px 12px}
+.rl{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px}
+.ri{flex:0 0 130px;background:none;text-align:left;color:var(--text);font:500 .85rem/1.35 'DM Sans',sans-serif}
+.ri img{width:130px;height:170px;object-fit:cover;border-radius:16px;background:var(--s1);display:block;margin-bottom:8px}
+.ri span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.app{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:38px;background:var(--s1);border:1px solid var(--line);border-radius:22px;padding:16px 16px 16px 20px}
+.app b{font:700 1rem 'Sora',sans-serif;display:block}.app small{color:var(--mute);font-size:.85rem}
+.app button{padding:0 18px;height:48px;background:linear-gradient(135deg,var(--v),var(--p));flex:none}
+.note{margin:26px 4px 0;color:var(--mute);font-size:.82rem}
+.toast{position:fixed;left:50%;bottom:max(26px,env(safe-area-inset-bottom));transform:translate(-50%,30px);background:#fff;color:#0a0c1f;font-weight:700;padding:12px 20px;border-radius:99px;opacity:0;pointer-events:none;transition:.3s;z-index:9;max-width:90vw;text-align:center}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
 <main>
-  <div class="brand"><i></i>ClipGrab</div>
-  <div class="upd" id="upd"><span>A new version is ready.</span><button id="updBtn" type="button">Update</button></div>
-  <h1>Save any reel in full HD.</h1>
-  <p class="sub">Paste an Instagram, TikTok or Facebook link. We fetch the best quality available, no watermark where the platform allows it.</p>
+  <div class="top"><div class="brand"><i></i>ClipGrab</div><span class="pill">Free</span></div>
+  <div class="upd" id="upd"><span>A new version is ready</span><button id="updBtn" type="button">Update</button></div>
 
-  <div class="box">
-    <input id="url" type="url" placeholder="Paste video link" aria-label="Video link" autocomplete="off">
-    <button class="ghost" id="paste" type="button">Paste</button>
-    <button id="fetch" type="button">Fetch</button>
+  <h1>Save any reel in full HD.</h1>
+  <p class="sub">Paste a link from Instagram, TikTok or Facebook. We fetch the best quality available.</p>
+
+  <div class="panel">
+    <div class="row">
+      <input id="url" type="url" placeholder="Paste video link" aria-label="Video link" autocomplete="off">
+      <button class="paste" id="paste" type="button">Paste</button>
+    </div>
+    <p class="det" id="det"></p>
+    <button class="big" id="fetch" type="button">Fetch video</button>
   </div>
   <p class="msg" id="msg" role="alert"></p>
+  <div class="perks"><span>Original quality</span><span>Clean, no watermark where possible</span><span>Free to use</span></div>
 
+  <div class="sk" id="sk"></div>
   <section class="card" id="card">
-    <img class="thumb" id="thumb" alt="" referrerpolicy="no-referrer">
+    <div class="tw"><img class="thumb" id="thumb" alt="" referrerpolicy="no-referrer"><span class="dur" id="dur"></span></div>
     <div class="body">
       <p class="title" id="title"></p>
       <p class="meta" id="meta"></p>
       <div class="chips" id="chips"></div>
-      <button class="go" id="dl" type="button">Download video</button>
-      <button class="ghost go2" id="img" type="button">Save cover image</button>
+      <button class="big" id="dl" type="button" style="margin-top:0">Download video</button>
+      <button class="ghost sec" id="img" type="button">Save cover image</button>
     </div>
   </section>
 
+  <section id="recent" hidden><h2>Recent</h2><div class="rl" id="rlist"></div></section>
+
+  <div class="app">
+    <div><b>ClipGrab app</b><small id="ver">Checking…</small></div>
+    <button id="chk" type="button">Check for update</button>
+  </div>
   <p class="note">Only download videos you own or have permission to use.</p>
 </main>
-<script>
-// Leave empty when Flask serves this page. For GitHub Pages, set your backend URL, e.g. "https://clipgrab.onrender.com"
-const API = "";
-const $ = id => document.getElementById(id);
-let quality = "best";
+<div class="toast" id="toast" role="status"></div>
 
-// ---- Android app: update check ----
-const GITHUB_REPO = "rizwanur026/clipgrab"; // change to your own, e.g. "rahim123/clipgrab"
+<script>
+// Leave empty when Flask serves this page. For GitHub Pages, set your backend URL.
+const API = "";
+const GITHUB_REPO = "rizwanur026/clipgrab";
+const $ = id => document.getElementById(id);
 const native = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
 const openExt = u => { const B = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Browser; B ? B.open({url:u}) : window.open(u, "_blank"); };
-(async () => {
-  if (!native) return;
-  try {
-    const info = await Capacitor.Plugins.App.getInfo();
-    const rel = await (await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`)).json();
-    const latest = parseInt(String(rel.tag_name).replace(/\D/g, ""), 10);
-    const apk = (rel.assets || []).find(a => a.name.endsWith(".apk"));
-    if (apk && latest > parseInt(info.build, 10)) {
-      $("upd").classList.add("on");
-      $("updBtn").onclick = () => openExt(apk.browser_download_url);
-    }
-  } catch (e) {}
-})();
-
 const say = t => $("msg").textContent = t || "";
 const mmss = s => s ? Math.floor(s/60) + ":" + String(Math.round(s%60)).padStart(2,"0") : "";
+let quality = "best", cur = null, tt;
+const toast = t => { const e = $("toast"); e.textContent = t; e.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => e.classList.remove("on"), 2600); };
+const plat = u => /tiktok/i.test(u) ? "TikTok" : /instagram/i.test(u) ? "Instagram" : /facebook|fb\.watch|fb\.com/i.test(u) ? "Facebook" : "";
+const abs = p => new URL(API + p, location.href).href;
+const go = u => native ? openExt(u) : (window.location.href = u);
 
+$("url").addEventListener("input", () => { const p = plat($("url").value); $("det").textContent = p ? p + " link detected" : ""; });
+$("url").addEventListener("keydown", e => e.key === "Enter" && $("fetch").click());
 $("paste").onclick = async () => {
-  try { $("url").value = await navigator.clipboard.readText(); $("fetch").click(); }
+  try { $("url").value = await navigator.clipboard.readText(); $("url").dispatchEvent(new Event("input")); $("fetch").click(); }
   catch { say("Clipboard is blocked. Paste the link manually."); }
 };
+
+// Recent list
+const HK = "clipgrab_recent";
+const loadH = () => { try { return JSON.parse(localStorage.getItem(HK)) || []; } catch { return []; } };
+function saveH(e) { try { localStorage.setItem(HK, JSON.stringify([e, ...loadH().filter(x => x.url !== e.url)].slice(0,6))); } catch {} renderH(); }
+function renderH() {
+  const l = loadH(); $("recent").hidden = !l.length; $("rlist").innerHTML = "";
+  l.forEach(e => {
+    const b = document.createElement("button"); b.className = "ri"; b.innerHTML = "<img referrerpolicy='no-referrer' alt=''><span></span>";
+    b.firstChild.src = e.thumb || ""; b.lastChild.textContent = e.title;
+    b.onclick = () => { $("url").value = e.url; $("url").dispatchEvent(new Event("input")); $("fetch").click(); window.scrollTo({top:0,behavior:"smooth"}); };
+    $("rlist").appendChild(b);
+  });
+}
 
 $("fetch").onclick = async () => {
   const url = $("url").value.trim();
   if (!url) return say("Paste a link first.");
-  say(""); $("card").classList.remove("on");
+  say(""); $("card").classList.remove("on"); $("sk").classList.add("on");
   $("fetch").disabled = true; $("fetch").textContent = "Fetching…";
   try {
     const r = await fetch(API + "/api/info", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({url})});
     const d = await r.json();
     if (!r.ok) throw new Error(d.error);
-    $("thumb").src = d.thumbnail || "";
-    $("title").textContent = d.title;
-    $("meta").textContent = [d.author, mmss(d.duration)].filter(Boolean).join("  |  ");
+    cur = {url, title:d.title, thumb:d.thumbnail};
+    $("thumb").src = d.thumbnail || ""; $("title").textContent = d.title;
+    $("meta").textContent = d.author || ""; $("dur").textContent = mmss(d.duration); $("dur").hidden = !d.duration;
     const sz = n => n ? " (" + (n/1048576 >= 1 ? (n/1048576).toFixed(1) + " MB" : Math.round(n/1024) + " KB") + ")" : "";
     const qs = d.qualities || [];
     const opts = [["best", "Best" + (qs[0] ? sz(qs[0].size) : "")], ...qs.map(q => [String(q.h), q.h + "p" + sz(q.size)])];
-    quality = "best";
-    $("chips").innerHTML = "";
+    quality = "best"; $("chips").innerHTML = "";
     opts.forEach(([v,l]) => {
-      const b = document.createElement("button");
-      b.className = "chip"; b.textContent = l; b.setAttribute("aria-pressed", v === "best");
+      const b = document.createElement("button"); b.className = "chip"; b.textContent = l; b.setAttribute("aria-pressed", v === "best");
       b.onclick = () => { quality = v; [...$("chips").children].forEach(c => c.setAttribute("aria-pressed", c === b)); };
       $("chips").appendChild(b);
     });
     $("card").classList.add("on");
+    $("card").scrollIntoView({behavior:"smooth", block:"start"});
   } catch (e) { say(e.message || "Something went wrong. Check your connection."); }
-  $("fetch").disabled = false; $("fetch").textContent = "Fetch";
+  $("sk").classList.remove("on"); $("fetch").disabled = false; $("fetch").textContent = "Fetch video";
 };
 
 $("dl").onclick = () => {
-  const u = new URL(API + "/api/download?q=" + quality + "&url=" + encodeURIComponent($("url").value.trim()), location.href).href;
-  $("dl").textContent = "Preparing your file…";
-  native ? openExt(u) : (window.location.href = u);
+  if (cur) saveH(cur);
+  $("dl").textContent = "Preparing your file…"; toast("Your download is starting");
+  go(abs("/api/download?q=" + quality + "&url=" + encodeURIComponent($("url").value.trim())));
   setTimeout(() => $("dl").textContent = "Download video", 6000);
 };
-$("img").onclick = () => {
-  const u = new URL(API + "/api/image?url=" + encodeURIComponent($("url").value.trim()), location.href).href;
-  native ? openExt(u) : (window.location.href = u);
-};
-$("url").addEventListener("keydown", e => e.key === "Enter" && $("fetch").click());
+$("img").onclick = () => go(abs("/api/image?url=" + encodeURIComponent($("url").value.trim())));
+
+// ---- App version and update ----
+let build = 0, pending = "";
+const label = () => $("chk").textContent = pending ? "Install update" : native ? "Check for update" : "Get Android app";
+async function latest() {
+  const r = await (await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`)).json();
+  return { n: parseInt(String(r.tag_name).replace(/\D/g, ""), 10), apk: (r.assets || []).find(a => a.name.endsWith(".apk")) };
+}
+async function check(manual) {
+  if (pending) return openExt(pending);
+  $("chk").disabled = true; $("chk").textContent = "Checking…";
+  try {
+    const { n, apk } = await latest();
+    if (!apk) throw 0;
+    if (!native) openExt(apk.browser_download_url);
+    else if (n > build) {
+      pending = apk.browser_download_url; $("ver").textContent = "Version " + n + " is available";
+      $("upd").classList.add("on"); $("updBtn").onclick = () => openExt(pending);
+      if (manual) toast("New version found");
+    } else if (manual) toast("You’re on the latest version");
+  } catch { if (manual) toast("Couldn’t check for updates. Try again later."); }
+  $("chk").disabled = false; label();
+}
+$("chk").onclick = () => check(true);
+(async () => {
+  label(); renderH();
+  if (!native) { $("ver").textContent = "You’re using the web version"; return; }
+  try { build = parseInt((await Capacitor.Plugins.App.getInfo()).build, 10); $("ver").textContent = "Installed version " + build; } catch { $("ver").textContent = "Installed"; }
+  check(false);
+})();
 </script>
 </body>
 </html>
