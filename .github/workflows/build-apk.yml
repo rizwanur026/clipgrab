@@ -98,21 +98,56 @@ jobs:
                 i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
                 try { startActivity(i); return true; } catch (Exception e) { return false; }
               }
+
+              @JavascriptInterface
+              public boolean exists(long id) {
+                Uri u = dm().getUriForDownloadedFile(id);
+                if (u == null) return false;
+                try { getContentResolver().openFileDescriptor(u, "r").close(); return true; } catch (Exception e) { return false; }
+              }
+
+              @JavascriptInterface
+              public boolean share(long id, String mime) {
+                Uri u = dm().getUriForDownloadedFile(id);
+                if (u == null) return false;
+                Intent i = new Intent(Intent.ACTION_SEND);
+                i.setType(mime);
+                i.putExtra(Intent.EXTRA_STREAM, u);
+                i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                try {
+                  Intent c = Intent.createChooser(i, "Share");
+                  c.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                  startActivity(c);
+                  return true;
+                } catch (Exception e) { return false; }
+              }
+
+              @JavascriptInterface
+              public void folder() {
+                Intent i = new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS);
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                try { startActivity(i); } catch (Exception e) {}
+              }
             }
           }
           JAVA
           sed -i -E "s/versionCode [0-9]+/versionCode ${{ github.run_number }}/; s/versionName \"[^\"]*\"/versionName \"${{ github.run_number }}\"/" android/app/build.gradle
           grep -E "versionCode|versionName" android/app/build.gradle
+          grep -q "versionCode ${{ github.run_number }}" android/app/build.gradle || { echo "versionCode patch failed"; exit 1; }
       - name: Use fixed signing key
         run: |
           mkdir -p ~/.android
-          base64 -d debug_keystore.b64 > ~/.android/debug.keystore
+          KS=$(ls debug*keystore*.b64 | head -1)
+          echo "Using $KS"
+          base64 -d "$KS" > ~/.android/debug.keystore
       - name: Build APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
           cp app/build/outputs/apk/debug/app-debug.apk ../ClipGrab.apk
+          APKSIGNER=$(ls $ANDROID_HOME/build-tools/*/apksigner | tail -1)
+          $APKSIGNER verify --print-certs ../ClipGrab.apk | grep -i "SHA-256" || true
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
