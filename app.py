@@ -1,10 +1,11 @@
 import os, re, shutil, tempfile
 from urllib.parse import urlparse
-from flask import Flask, request, jsonify, send_file, after_this_request
+from flask import Flask, request, jsonify, send_file, send_from_directory, after_this_request
 from flask_cors import CORS
 import yt_dlp
 
-app = Flask(__name__, static_folder="static", static_url_path="")
+BASE = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, static_folder=None)
 CORS(app)
 
 ALLOWED = ("instagram.com", "tiktok.com", "facebook.com", "fb.watch", "fb.com")
@@ -25,7 +26,10 @@ def fmt(height, tiktok):
 
 @app.get("/")
 def index():
-    return app.send_static_file("index.html")
+    for d in (BASE, os.path.join(BASE, "static")):
+        if os.path.exists(os.path.join(d, "index.html")):
+            return send_from_directory(d, "index.html")
+    return "index.html is missing from the repo.", 404
 
 @app.post("/api/info")
 def info():
