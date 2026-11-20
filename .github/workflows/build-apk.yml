@@ -101,11 +101,12 @@ jobs:
             }
           }
           JAVA
-          sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/; s/versionName \"1.0\"/versionName \"${{ github.run_number }}\"/" android/app/build.gradle
+          sed -i -E "s/versionCode [0-9]+/versionCode ${{ github.run_number }}/; s/versionName \"[^\"]*\"/versionName \"${{ github.run_number }}\"/" android/app/build.gradle
+          grep -E "versionCode|versionName" android/app/build.gradle
       - name: Use fixed signing key
         run: |
           mkdir -p ~/.android
-          base64 -d debug.keystore.b64 > ~/.android/debug.keystore
+          base64 -d debug_keystore.b64 > ~/.android/debug.keystore
       - name: Build APK
         run: |
           cd android
