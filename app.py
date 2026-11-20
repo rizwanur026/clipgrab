@@ -91,22 +91,6 @@ def image():
     ext = {"image/png": "png", "image/webp": "webp"}.get(ctype, "jpg")
     return Response(data, mimetype=ctype, headers={"Content-Disposition": f"attachment; filename=image.{ext}"})
 
-@app.get("/api/formats")
-def formats():
-    url = request.args.get("url", "")
-    if not valid(url):
-        return jsonify(error="Invalid link."), 400
-    try:
-        with yt_dlp.YoutubeDL({"quiet": True, "noplaylist": True}) as y:
-            d = y.extract_info(url, download=False)
-    except Exception as e:
-        return jsonify(error=str(e)[:300]), 422
-    return jsonify([
-        {"id": f.get("format_id"), "height": f.get("height"), "kbps": round(f.get("tbr") or 0),
-         "codec": f.get("vcodec"), "note": f.get("format_note")}
-        for f in d.get("formats", [])
-    ])
-
 JOBS, LOCK, TTL = {}, threading.Lock(), 900
 
 def sweep():
@@ -167,7 +151,8 @@ def prepare():
 
 @app.get("/api/job/<jid>")
 def job(jid):
-    j = JOBS.get(jid)
+    with LOCK:
+        j = JOBS.get(jid)
     if not j:
         return jsonify(error="Expired"), 404
     return jsonify({k: j.get(k) for k in ("state", "stage", "pct", "speed", "name", "size")})
