@@ -1,4 +1,4 @@
-import os, re, shutil, tempfile, urllib.request
+import os, re, shutil, tempfile, threading, time, uuid, urllib.request
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, Response, send_file, send_from_directory, after_this_request
 from flask_cors import CORS
@@ -107,38 +107,77 @@ def formats():
         for f in d.get("formats", [])
     ])
 
-@app.get("/api/download")
-def download():
-    url = request.args.get("url", "")
-    q = request.args.get("q", "best")
-    if not valid(url):
-        return jsonify(error="Invalid link."), 400
-    height = int(q) if q.isdigit() else None
+JOBS, LOCK, TTL = {}, threading.Lock(), 900
+
+def sweep():
+    now = time.time()
+    for k, j in list(JOBS.items()):
+        if now - j["t"] > TTL:
+            shutil.rmtree(j.get("dir", ""), ignore_errors=True)
+            JOBS.pop(k, None)
+
+def run(jid, url, q, kind):
+    j = JOBS[jid]
     tmp = tempfile.mkdtemp()
-    opts = {
-        "quiet": True, "noplaylist": True,
-        "outtmpl": os.path.join(tmp, "%(id)s.%(ext)s"),
-        "format": fmt(height, "tiktok.com" in url),
-        "merge_output_format": "mp4",
-        "format_sort": ["res", "br"],  # biggest resolution first, then highest bitrate
-    }
+    j["dir"] = tmp
+
+    def hook(d):
+        if d["status"] == "downloading":
+            tot = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
+            j["pct"] = int(d["downloaded_bytes"] * 100 / tot) if tot else 0
+            j["speed"] = int(d.get("speed") or 0)
+
+    def post(d):
+        if d["status"] == "started":
+            j["stage"] = "processing"
+
+    opts = {"quiet": True, "noplaylist": True, "outtmpl": os.path.join(tmp, "%(id)s.%(ext)s"),
+            "progress_hooks": [hook], "postprocessor_hooks": [post],
+            "concurrent_fragment_downloads": 8, "format_sort": ["res", "br"]}
+    if kind == "audio":
+        opts.update(format="bestaudio/best", postprocessors=[
+            {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}])
+    else:
+        opts.update(format=fmt(int(q) if q.isdigit() else None, "tiktok.com" in url), merge_output_format="mp4")
     try:
         with yt_dlp.YoutubeDL(opts) as y:
             d = y.extract_info(url, download=True)
-            path = y.prepare_filename(d)
-            if not os.path.exists(path):
-                path = os.path.splitext(path)[0] + ".mp4"
+        files = sorted((os.path.join(tmp, f) for f in os.listdir(tmp)
+                        if not f.endswith((".part", ".ytdl"))), key=os.path.getsize)
+        path = files[-1]
+        name = re.sub(r"[^\w\- ]", "", d.get("title") or "video")[:60].strip() or "video"
+        j.update(path=path, name=name + os.path.splitext(path)[1], size=os.path.getsize(path), state="ready", pct=100)
     except Exception:
-        shutil.rmtree(tmp, ignore_errors=True)
-        return jsonify(error="Download failed. Try again or pick another quality."), 500
+        j["state"] = "error"
 
-    @after_this_request
-    def cleanup(resp):
-        shutil.rmtree(tmp, ignore_errors=True)
-        return resp
+@app.post("/api/prepare")
+def prepare():
+    b = request.json or {}
+    url, q, kind = b.get("url", "").strip(), str(b.get("q", "best")), b.get("kind", "video")
+    if not valid(url):
+        return jsonify(error="Invalid link."), 400
+    with LOCK:
+        sweep()
+        if sum(1 for j in JOBS.values() if j["state"] == "running") >= 3:
+            return jsonify(error="Server is busy. Try again in a minute."), 429
+        jid = uuid.uuid4().hex[:12]
+        JOBS[jid] = {"state": "running", "stage": "downloading", "pct": 0, "speed": 0, "t": time.time()}
+    threading.Thread(target=run, args=(jid, url, q, kind), daemon=True).start()
+    return jsonify(id=jid)
 
-    name = re.sub(r"[^\w\- ]", "", d.get("title") or "video")[:60].strip() or "video"
-    return send_file(path, as_attachment=True, download_name=f"{name}.mp4")
+@app.get("/api/job/<jid>")
+def job(jid):
+    j = JOBS.get(jid)
+    if not j:
+        return jsonify(error="Expired"), 404
+    return jsonify({k: j.get(k) for k in ("state", "stage", "pct", "speed", "name", "size")})
+
+@app.get("/api/file/<jid>")
+def file(jid):
+    j = JOBS.get(jid)
+    if not j or j["state"] != "ready":
+        return jsonify(error="Not ready"), 404
+    return send_file(j["path"], as_attachment=True, download_name=j["name"])
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
