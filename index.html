@@ -264,7 +264,7 @@ main{max-width:580px;margin:0 auto;padding:0 18px 70px}
   <div class="upd" id="upd"><b>A new version is ready</b><button type="button" id="updBtn">Update</button></div>
   <div class="hero">
     <h1>Save any reel in <span class="gt">up to 4K</span>.</h1>
-    <p>Paste a link from Instagram, TikTok or Facebook. We fetch the best quality available.</p>
+    <p>Paste a link from Instagram, TikTok or Facebook. It loads automatically.</p>
   </div>
   <div class="panel">
     <div class="field">
@@ -400,6 +400,14 @@ main{max-width:580px;margin:0 auto;padding:0 18px 70px}
     <button class="ghost" id="uengine" type="button" hidden>Update YouTube engine</button>
     <p class="hint" id="uenghint" hidden>YouTube changes often. If the On-phone engine stops working, update it here (needs internet).</p>
   </div>
+  <div class="ucard" id="ttcard" hidden>
+    <div class="uic" style="background:#101018"><svg class="lg" style="width:46px;height:46px;border-radius:14px"><use href="#l-tiktok"/></svg></div>
+    <h2>TikTok login</h2>
+    <p class="hint" id="tthint">Log in with the account that follows the creator, to download followers-only videos. Your login stays on this phone only.</p>
+    <p class="ust" id="ttstat"></p>
+    <button class="pri" id="ttbtn" type="button">Log in to TikTok</button>
+    <button class="ghost" id="ttout" type="button" hidden>Log out</button>
+  </div>
 </section>
 </main>
 
@@ -421,6 +429,7 @@ const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => ({"&":"&amp
 const mmss = s => s ? Math.floor(s/60) + ":" + String(Math.round(s%60)).padStart(2,"0") : "";
 const fmtB = n => n ? (n >= 1e9 ? (n/1e9).toFixed(2) + " GB" : n >= 1e6 ? Math.round(n/1e6) + " MB" : Math.max(1, Math.round(n/1e3)) + " KB") : "";
 const resLabel = h => h >= 4320 ? "8K" : h >= 2160 ? "4K" : h >= 1440 ? "2K" : h + "p";
+const isTikTok = u => /tiktok\.com/i.test(u);
 const plat = u => /youtube\.com|youtu\.be/i.test(u) ? "youtube" : /tiktok/i.test(u) ? "tiktok" : /instagram/i.test(u) ? "instagram" : /facebook|fb\.watch|fb\.com/i.test(u) ? "facebook" : "";
 const PNAME = {instagram:"Instagram", tiktok:"TikTok", facebook:"Facebook", youtube:"YouTube"};
 const yt = (f, ...a) => { try { return window.ClipYT && typeof ClipYT[f] === "function" ? ClipYT[f](...a) : undefined; } catch { return undefined; } };
@@ -478,8 +487,25 @@ $("url").addEventListener("input", () => {
   document.querySelectorAll(".pl").forEach(e => e.classList.toggle("on", e.dataset.p === p));
 });
 $("url").addEventListener("keydown", e => e.key === "Enter" && $("fetch").click());
+/* paste a link (or tap Paste) and it runs by itself, no need to press Get video */
+const autoLast = {home:"", yt:""};
+function autoRun(key, inp, btn) {
+  let t, prev = 0;
+  inp.addEventListener("input", e => {
+    const v = inp.value.trim(), jump = Math.abs(inp.value.length - prev) > 8; prev = inp.value.length;
+    if (!v) { autoLast[key] = ""; return; }
+    if (!(!e.inputType || /paste|drop/i.test(e.inputType) || jump)) return;   // ignore plain typing
+    clearTimeout(t);
+    t = setTimeout(() => {
+      const u = inp.value.trim();
+      if (!/^https?:\/\/\S+$/i.test(u) || !plat(u) || autoLast[key] === u || btn.disabled) return;
+      autoLast[key] = u; btn.click();
+    }, 150);
+  });
+}
+autoRun("home", $("url"), $("fetch"));
 $("paste").onclick = async () => {
-  try { $("url").value = await navigator.clipboard.readText(); $("url").dispatchEvent(new Event("input")); $("fetch").click(); }
+  try { const t = await navigator.clipboard.readText(); autoLast.home = ""; $("url").value = t; $("url").dispatchEvent(new Event("input")); }
   catch { say("Clipboard is blocked. Paste the link manually."); }
 };
 $("fetch").onclick = async () => {
@@ -488,11 +514,18 @@ $("fetch").onclick = async () => {
   if (plat(url) === "youtube") { $("yurl").value = url; $("yurl").dispatchEvent(new Event("input")); location.replace("#youtube"); return $("yfetch").click(); }
   $("card").classList.remove("on"); $("sk").classList.add("on"); $("fetch").disabled = true;
   try {
-    const r = await fetch(API + "/api/info", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({url})});
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || "Couldn’t read this link.");
+    let d, perr = "";
+    const viaPhone = plat(url) === "tiktok" && phoneOK() && ttLoggedIn();   // logged-in TikTok never touches the server
+    if (viaPhone) { try { say("Reading the video on your phone…"); d = await phoneInfo(url, say); say(""); } catch (e) { perr = e.message || "x"; } }
+    if (!d) {
+      const r = await fetch(API + "/api/info", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({url})});
+      const sd = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(perr ? ytFriendly(perr, "tiktok")
+        : (sd.error || "Couldn’t read this link.") + (plat(url) === "tiktok" && phoneOK() && !ttLoggedIn() ? " If it’s followers-only, log in to TikTok from Updates." : ""));
+      d = sd;
+    }
     showCard(d, url);
-  } catch (e) { say(e.message || "Something went wrong. Try again."); }
+  } catch (e) { autoLast.home = ""; say(e.message || "Something went wrong. Try again."); }
   $("sk").classList.remove("on"); $("fetch").disabled = false;
 };
 function showCard(d, url) {
@@ -526,6 +559,7 @@ $("dl").onclick = () => {
   const it = {id:newId(), url:cur.url, kind:pick.kind, q: pick.kind === "audio" ? "best" : pick.v,
     qlabel: pick.kind === "audio" ? "MP3" : pick.v === "best" ? (qs[0] ? resLabel(qs[0].h) : "Best") : pick.label,
     title:cur.title, author:cur.author, thumb:cur.thumbnail, platform:cur.platform, t:Date.now()};
+  if (cur.platform === "tiktok" && phoneOK() && ttLoggedIn()) it.engines = ["phone", "server"];
   addItem(it);
 };
 $("cover").onclick = () => {
@@ -594,7 +628,7 @@ async function run(it) {
       const r = engines[i] === "phone" ? await phoneRun(it) : await serverRun(it);
       if (dead()) return;
       if (r.ok) return;
-      lastErr = r.err || lastErr;
+      lastErr = it.platform === "tiktok" && lastErr ? lastErr : (r.err || lastErr);   // keep the phone’s (more specific) TikTok error
     }
     fail(lastErr || "Download failed. Tap retry.");
   } catch { fail("Network problem. Tap retry."); }
@@ -609,7 +643,7 @@ async function phoneRun(it) {
     await sleep(600);
     if (dead()) { yt("cancel", id); return {ok:true}; }
     let j; try { j = JSON.parse(ClipYT.poll(id)); } catch { continue; }
-    if (j.state === "error") return {ok:false, err:ytFriendly(j.error)};
+    if (j.state === "error") return {ok:false, err:ytFriendly(j.error, it.platform)};
     if (j.state === "done") {
       Object.assign(it, {uri:j.uri, name:j.name, size:j.size, mime:j.mime, state:"done", pct:100, tdone:Date.now(), eta:0, yt:null});
       refresh(); toast("Saved · " + it.title.slice(0, 40), () => nav("downloads")); return {ok:true};
@@ -617,7 +651,16 @@ async function phoneRun(it) {
     it.stage = j.stage || "Working…"; it.pct = Math.floor(j.pct || 0); it.eta = j.eta || 0; paint(it);
   }
 }
-const ytFriendly = m => /sign in|not a bot|confirm you/i.test(m || "") ? "YouTube asked for a bot check on this connection." : /private|unavailable/i.test(m || "") ? "This video is private or unavailable." : "The phone engine failed. Try Updates → Update YouTube engine.";
+const ytDetail = m => String(m || "").replace(/\s+/g, " ").replace(/^.*?(ERROR:\s*)/i, "").replace(/\[(youtube|tiktok)[^\]]*\][^:]*:\s*/i, "").trim().slice(0, 140);
+const ytFriendly = (m, p) => {
+  m = m || "";
+  if (p === "tiktok") return /log ?in|private|unavailable|removed|not available|forbidden|403|cookie|permission/i.test(m)
+    ? "TikTok won’t open this video for the logged-in account. Check that it follows the creator (Updates → TikTok login)."
+    : "TikTok download failed" + (ytDetail(m) ? ": " + ytDetail(m) : ".") + " Tap Retry.";
+  return /sign in|not a bot|confirm you/i.test(m) ? "YouTube asked for a bot check on this connection. Try again in a bit or switch network."
+    : /private|unavailable|removed/i.test(m) ? "This video is private or unavailable."
+    : "The phone engine failed" + (ytDetail(m) ? ": " + ytDetail(m) : ".") + " Tap Retry, or Updates → Update YouTube engine.";
+};
 async function serverRun(it) {
   const dead = () => !items.includes(it);
   let file;
@@ -742,17 +785,18 @@ const ymsg = t => $("ymsg").textContent = t || "";
 const ystat = t => $("ystat").textContent = t || "";
 $("yurl").addEventListener("input", () => { const p = plat($("yurl").value); $("ylead").innerHTML = p === "youtube" ? logo(p) : ic("link"); });
 $("yurl").addEventListener("keydown", e => e.key === "Enter" && $("yfetch").click());
+autoRun("yt", $("yurl"), $("yfetch"));
 $("ypaste").onclick = async () => {
-  try { $("yurl").value = await navigator.clipboard.readText(); $("yurl").dispatchEvent(new Event("input")); $("yfetch").click(); }
+  try { const t = await navigator.clipboard.readText(); autoLast.yt = ""; $("yurl").value = t; $("yurl").dispatchEvent(new Event("input")); }
   catch { ymsg("Clipboard is blocked. Paste the link manually."); }
 };
 
-function ytQualities(d) {   // same rules as the server: every real resolution from 360p up
+function ytQualities(d, tt) {   // same rules as the server: every real resolution from 360p up
   const fs = d.formats || [], dur = d.duration || 0;
   const est = f => { let n = f.filesize || f.filesize_approx; if (!n && f.tbr && dur) n = f.tbr * 1000 / 8 * dur; return n ? Math.round(n) : 0; };
   const noV = f => !f.vcodec || f.vcodec === "none", noA = f => !f.acodec || f.acodec === "none";
   const aud = fs.filter(f => noV(f) && !noA(f)).sort((a, b) => (b.tbr || 0) - (a.tbr || 0))[0];
-  const vids = fs.filter(f => f.height && !noV(f));
+  const vids = fs.filter(f => f.height && !noV(f) && !(tt && String(f.format_id).includes("download")));   // skip watermarked TikTok stream
   const out = [], seen = new Set();
   [...new Set(vids.map(f => f.height))].sort((a, b) => b - a).forEach(sel => {
     const b = vids.filter(f => f.height === sel).sort((x, y) => (y.tbr || 0) - (x.tbr || 0))[0];
@@ -764,7 +808,7 @@ function ytQualities(d) {   // same rules as the server: every real resolution f
   });
   return out.slice(0, 10);
 }
-async function phoneInfo(url) {
+async function phoneInfo(url, stat = ystat) {
   const id = ClipYT.infoStart(url);
   for (;;) {
     await sleep(500);
@@ -772,9 +816,9 @@ async function phoneInfo(url) {
     if (j.state === "error") throw new Error(j.error || "The phone engine failed.");
     if (j.state === "done") {
       const d = JSON.parse(j.result);
-      return {title:d.title, author:d.uploader, thumbnail:d.thumbnail, duration:d.duration || 0, qualities:ytQualities(d), chapters:d.chapters || [], via:"phone"};
+      return {title:d.title, author:d.uploader, thumbnail:d.thumbnail, duration:d.duration || 0, qualities:ytQualities(d, isTikTok(url)), chapters:d.chapters || [], via:"phone"};
     }
-    ystat(j.stage || "Working…");
+    stat(j.stage || "Working…");
   }
 }
 async function serverInfo(url) {
@@ -801,7 +845,7 @@ $("yfetch").onclick = async () => {
   if (plat(url) !== "youtube") return ymsg("That doesn’t look like a YouTube link.");
   $("ycard").classList.remove("on"); $("ysk").classList.add("on"); $("yfetch").disabled = true;
   try { showY(await ytInfo(url), url); }
-  catch (e) { ymsg(e.message || "Couldn’t read this link."); }
+  catch (e) { autoLast.yt = ""; ymsg(e.message || "Couldn’t read this link."); }
   ystat(""); $("ysk").classList.remove("on"); $("yfetch").disabled = false;
 };
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -945,7 +989,30 @@ $("uengine").onclick = async () => {
   } catch { toast("Couldn’t update the engine"); }
   b.disabled = false; b.textContent = "Update YouTube engine";
 };
+/* ---------- TikTok login (Updates page) ---------- */
+const ttOK = () => !!(window.ClipYT && typeof ClipYT.ttLogin === "function");
+const ttState = () => { try { return JSON.parse(ClipYT.ttStatus()); } catch { return {in:false, open:false}; } };
+let ttIn = ttOK() ? !!ttState().in : false;
+const ttLoggedIn = () => { if (ttOK()) ttIn = !!ttState().in; return ttIn; };
+function ttRender() {
+  const s = ttState(); ttIn = !!s.in;
+  $("ttstat").textContent = s.in ? "Logged in ✓" : "Not logged in"; $("ttstat").className = "ust" + (s.in ? " good" : "");
+  $("ttbtn").hidden = !!s.in; $("ttout").hidden = !s.in;
+  $("tthint").textContent = s.in ? "Followers-only videos from accounts you follow will now download. Your login stays on this phone only."
+    : "Log in with the account that follows the creator, to download followers-only videos. Your login stays on this phone only.";
+}
+$("ttbtn").onclick = async () => {
+  if (yt("ttLogin") !== true) return toast("Couldn’t open the login page");
+  for (;;) { await sleep(700); ttRender(); if (!ttState().open) break; }
+  if (ttIn) toast("TikTok login saved");
+};
+$("ttout").onclick = () => {
+  if (!confirm("Log out of TikTok on this phone?")) return;
+  yt("ttLogout"); ttRender(); toast("Logged out of TikTok");
+};
+document.addEventListener("visibilitychange", () => { if (!document.hidden && ttOK() && !$("p-update").hidden) ttRender(); });
 function updEnter() {
+  $("ttcard").hidden = !ttOK(); if (ttOK()) ttRender();
   $("uengine").hidden = $("uenghint").hidden = !phoneOK();
   $("uver").textContent = native ? (build ? "Installed version " + build : "Installed") : "You’re using the web version";
   if (!pending || Date.now() - checked > 60000) check(false);

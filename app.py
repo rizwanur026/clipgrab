@@ -35,9 +35,33 @@ def base_opts(url, **extra):
     o.update(extra)
     return o
 
+# YouTube datacenter IPs often get the bot check on the default clients; other clients sometimes get through.
+YT_CLIENT_PLANS = (None, ["web_embedded", "default"], ["mweb"], ["tv", "web_safari"])
+
+def is_bot_block(msg: str) -> bool:
+    m = msg.lower()
+    return "confirm you" in m or "not a bot" in m or "sign in" in m
+
+def extract(url, download=False, plans=None, **extra):
+    """Run yt-dlp, retrying other YouTube player clients if the bot check hits. Returns (info, opts_used)."""
+    plans = YT_CLIENT_PLANS if is_yt(url) else (None,)
+    last = None
+    for pc in plans:
+        o = base_opts(url, **extra)
+        if pc:
+            o["extractor_args"] = {"youtube": {"player_client": pc}}
+        try:
+            with yt_dlp.YoutubeDL(o) as y:
+                return y.extract_info(url, download=download)
+        except Exception as e:
+            last = e
+            if not is_bot_block(str(e)):
+                raise
+    raise last
+
 def yt_error(msg: str):
     m = msg.lower()
-    if "confirm you" in m or "not a bot" in m or "sign in" in m:
+    if is_bot_block(msg):
         return "yt_blocked", "YouTube blocked our server (bot check). Use the On-phone engine."
     if "private" in m or "unavailable" in m:
         return "yt_unavailable", "This video is private or unavailable."
@@ -99,8 +123,7 @@ def info():
     if not valid(url):
         return jsonify(error="Paste a valid Instagram, TikTok or Facebook link."), 400
     try:
-        with yt_dlp.YoutubeDL(base_opts(url)) as y:
-            d = y.extract_info(url, download=False)
+        d = extract(url)
     except Exception as e:
         code, msg = yt_error(str(e))
         return jsonify(error=msg if is_yt(url) else "Couldn’t read this link. It may be private or removed.", code=code), 422
@@ -120,8 +143,7 @@ def image():
     if not valid(url):
         return jsonify(error="Invalid link."), 400
     try:
-        with yt_dlp.YoutubeDL(base_opts(url)) as y:
-            d = y.extract_info(url, download=False)
+        d = extract(url)
         th = [t for t in d.get("thumbnails", []) if t.get("url")]
         th = sorted(th, key=lambda t: (t.get("width") or 0) * (t.get("height") or 0))
         src = th[-1]["url"] if th else d.get("thumbnail")
@@ -172,8 +194,8 @@ def run(jid, url, q, kind, start=0, end=0, precise=True):
     else:
         opts.update(format=fmt(int(q) if q.isdigit() else None, "tiktok.com" in url), merge_output_format="mp4")
     try:
-        with yt_dlp.YoutubeDL(opts) as y:
-            d = y.extract_info(url, download=True)
+        extra = {k: v for k, v in opts.items() if k not in ("quiet", "noplaylist")}
+        d = extract(url, download=True, **extra)
         files = sorted((os.path.join(tmp, f) for f in os.listdir(tmp)
                         if not f.endswith((".part", ".ytdl", ".temp"))), key=os.path.getsize)
         path = files[-1]
