@@ -8,7 +8,40 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=None)
 CORS(app)
 
-ALLOWED = ("instagram.com", "tiktok.com", "facebook.com", "fb.watch", "fb.com")
+ALLOWED = ("instagram.com", "tiktok.com", "facebook.com", "fb.watch", "fb.com", "youtube.com", "youtu.be")
+
+# ---- optional YouTube helpers (set these env vars on Render if YouTube blocks the server) ----
+#   YT_COOKIES : full contents of a Netscape cookies.txt exported from a logged-in browser
+#   YT_PROXY   : e.g. http://user:pass@host:port (a residential proxy avoids the datacenter-IP block)
+COOKIE_FILE = None
+if os.environ.get("YT_COOKIES"):
+    COOKIE_FILE = os.path.join(tempfile.gettempdir(), "yt_cookies.txt")
+    with open(COOKIE_FILE, "w") as _f:
+        _f.write(os.environ["YT_COOKIES"])
+
+def is_yt(url: str) -> bool:
+    host = (urlparse(url).hostname or "").lower()
+    return host == "youtu.be" or host == "youtube.com" or host.endswith(".youtube.com")
+
+def base_opts(url, **extra):
+    o = {"quiet": True, "noplaylist": True}
+    if is_yt(url):
+        if shutil.which("node"):
+            o["js_runtimes"] = {"node": {}}      # YouTube needs a JS runtime for its signature challenge
+        if COOKIE_FILE:
+            o["cookiefile"] = COOKIE_FILE
+        if os.environ.get("YT_PROXY"):
+            o["proxy"] = os.environ["YT_PROXY"]
+    o.update(extra)
+    return o
+
+def yt_error(msg: str):
+    m = msg.lower()
+    if "confirm you" in m or "not a bot" in m or "sign in" in m:
+        return "yt_blocked", "YouTube blocked our server (bot check). Use the On-phone engine."
+    if "private" in m or "unavailable" in m:
+        return "yt_unavailable", "This video is private or unavailable."
+    return "yt_fail", "Couldn’t read this link."
 
 def valid(url: str) -> bool:
     try:
@@ -31,21 +64,27 @@ def est(f, dur):
     return int(n) if n else 0
 
 def qualities(d, tiktok):
+    """Every real resolution of the video (360p and up, up to 4K+).
+    h   = label shown to the user (short side, so vertical reels read 1080p, not 1920p)
+    sel = real height used for the yt-dlp filter."""
     dur, fs = d.get("duration"), d.get("formats", [])
     audio = max((f for f in fs if f.get("vcodec") in (None, "none") and f.get("acodec") not in (None, "none")),
                 key=lambda f: f.get("tbr") or 0, default=None)
-    out = []
-    for h in sorted({f["height"] for f in fs if f.get("height")}, reverse=True)[:5]:
-        c = [f for f in fs if f.get("height") == h and f.get("vcodec") not in (None, "none")
-             and not (tiktok and "download" in str(f.get("format_id")))]
-        if not c:
+    vids = [f for f in fs if f.get("height") and f.get("vcodec") not in (None, "none")
+            and not (tiktok and "download" in str(f.get("format_id")))]
+    out, seen = [], set()
+    for sel in sorted({f["height"] for f in vids}, reverse=True):
+        b = max((f for f in vids if f["height"] == sel), key=lambda f: f.get("tbr") or 0)
+        w = b.get("width") or 0
+        label = min(sel, w) if w else sel
+        if label < 360 or label in seen:
             continue
-        b = max(c, key=lambda f: f.get("tbr") or 0)
+        seen.add(label)
         size = est(b, dur)
         if size and b.get("acodec") in (None, "none") and audio:
             size += est(audio, dur)
-        out.append({"h": h, "size": size})
-    return out
+        out.append({"h": label, "sel": sel, "size": size})
+    return out[:10]
 
 @app.get("/")
 def index():
@@ -60,16 +99,19 @@ def info():
     if not valid(url):
         return jsonify(error="Paste a valid Instagram, TikTok or Facebook link."), 400
     try:
-        with yt_dlp.YoutubeDL({"quiet": True, "noplaylist": True}) as y:
+        with yt_dlp.YoutubeDL(base_opts(url)) as y:
             d = y.extract_info(url, download=False)
-    except Exception:
-        return jsonify(error="Couldn’t read this link. It may be private or removed."), 422
+    except Exception as e:
+        code, msg = yt_error(str(e))
+        return jsonify(error=msg if is_yt(url) else "Couldn’t read this link. It may be private or removed.", code=code), 422
     return jsonify(
         title=d.get("title") or "Untitled video",
-        author=d.get("uploader") or "",
+        author=d.get("uploader") or d.get("channel") or "",
         thumbnail=d.get("thumbnail"),
         duration=d.get("duration"),
         qualities=qualities(d, "tiktok.com" in url),
+        chapters=[{"title": c.get("title"), "start": c.get("start_time"), "end": c.get("end_time")}
+                  for c in (d.get("chapters") or [])][:40],
     )
 
 @app.get("/api/image")
@@ -78,7 +120,7 @@ def image():
     if not valid(url):
         return jsonify(error="Invalid link."), 400
     try:
-        with yt_dlp.YoutubeDL({"quiet": True, "noplaylist": True}) as y:
+        with yt_dlp.YoutubeDL(base_opts(url)) as y:
             d = y.extract_info(url, download=False)
         th = [t for t in d.get("thumbnails", []) if t.get("url")]
         th = sorted(th, key=lambda t: (t.get("width") or 0) * (t.get("height") or 0))
@@ -100,7 +142,7 @@ def sweep():
             shutil.rmtree(j.get("dir", ""), ignore_errors=True)
             JOBS.pop(k, None)
 
-def run(jid, url, q, kind):
+def run(jid, url, q, kind, start=0, end=0, precise=True):
     j = JOBS[jid]
     tmp = tempfile.mkdtemp()
     j["dir"] = tmp
@@ -115,9 +157,15 @@ def run(jid, url, q, kind):
         if d["status"] == "started":
             j["stage"] = "processing"
 
-    opts = {"quiet": True, "noplaylist": True, "outtmpl": os.path.join(tmp, "%(id)s.%(ext)s"),
-            "progress_hooks": [hook], "postprocessor_hooks": [post],
-            "concurrent_fragment_downloads": 8, "format_sort": ["res", "br"]}
+    yt = is_yt(url)
+    opts = base_opts(url, outtmpl=os.path.join(tmp, "%(id)s.%(ext)s"),
+                     progress_hooks=[hook], postprocessor_hooks=[post],
+                     concurrent_fragment_downloads=8,
+                     format_sort=["res", "vcodec:h264", "acodec:aac"] if yt else ["res", "br"])
+    if end > start >= 0 and (start > 0 or end > 0):
+        from yt_dlp.utils import download_range_func
+        opts["download_ranges"] = download_range_func([], [(start, end)])
+        opts["force_keyframes_in_cuts"] = bool(precise)       # frame-accurate cut (re-encodes, slower)
     if kind == "audio":
         opts.update(format="bestaudio/best", postprocessors=[
             {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}])
@@ -127,11 +175,12 @@ def run(jid, url, q, kind):
         with yt_dlp.YoutubeDL(opts) as y:
             d = y.extract_info(url, download=True)
         files = sorted((os.path.join(tmp, f) for f in os.listdir(tmp)
-                        if not f.endswith((".part", ".ytdl"))), key=os.path.getsize)
+                        if not f.endswith((".part", ".ytdl", ".temp"))), key=os.path.getsize)
         path = files[-1]
         name = re.sub(r"[^\w\- ]", "", d.get("title") or "video")[:60].strip() or "video"
         j.update(path=path, name=name + os.path.splitext(path)[1], size=os.path.getsize(path), state="ready", pct=100)
-    except Exception:
+    except Exception as e:
+        j["err"] = yt_error(str(e))[1] if yt else "Couldn’t fetch this one."
         j["state"] = "error"
 
 @app.post("/api/prepare")
@@ -140,13 +189,22 @@ def prepare():
     url, q, kind = b.get("url", "").strip(), str(b.get("q", "best")), b.get("kind", "video")
     if not valid(url):
         return jsonify(error="Invalid link."), 400
+    try:
+        start, end = max(0.0, float(b.get("start") or 0)), max(0.0, float(b.get("end") or 0))
+    except (TypeError, ValueError):
+        return jsonify(error="Invalid time range."), 400
+    if end and end <= start:
+        return jsonify(error="End time must be after start time."), 400
+    if end and end - start > 4 * 3600:
+        return jsonify(error="Clips can be at most 4 hours."), 400
+    precise = bool(b.get("precise", True))
     with LOCK:
         sweep()
         if sum(1 for j in JOBS.values() if j["state"] == "running") >= 3:
             return jsonify(error="Server is busy. Try again in a minute."), 429
         jid = uuid.uuid4().hex[:12]
         JOBS[jid] = {"state": "running", "stage": "downloading", "pct": 0, "speed": 0, "t": time.time()}
-    threading.Thread(target=run, args=(jid, url, q, kind), daemon=True).start()
+    threading.Thread(target=run, args=(jid, url, q, kind, start, end, precise), daemon=True).start()
     return jsonify(id=jid)
 
 @app.get("/api/job/<jid>")
@@ -155,7 +213,7 @@ def job(jid):
         j = JOBS.get(jid)
     if not j:
         return jsonify(error="Expired"), 404
-    return jsonify({k: j.get(k) for k in ("state", "stage", "pct", "speed", "name", "size")})
+    return jsonify({k: j.get(k) for k in ("state", "stage", "pct", "speed", "name", "size", "err")})
 
 @app.get("/api/file/<jid>")
 def file(jid):

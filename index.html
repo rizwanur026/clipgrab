@@ -3,149 +3,408 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0a0c1f">
-<title>ClipGrab – HD video downloader</title>
+<meta name="theme-color" content="#07081a">
+<title>ClipGrab – Reel &amp; video downloader</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0a0c1f;--s1:#141838;--s2:#1c2150;--line:#2c3270;--text:#f0f1ff;--mute:#a3a9d9;--v:#7c5cff;--p:#c15cff;--mint:#3de0c4;--err:#ff7a8a}
+:root{--bg:#07081a;--g1:rgba(255,255,255,.05);--g2:rgba(255,255,255,.09);--line:rgba(255,255,255,.1);--text:#f4f4ff;--mute:#9aa0cf;--v:#7c5cff;--p:#d05cff;--pk:#ff5c9d;--mint:#3de0c4;--gold:#ffd27a;--err:#ff7a8a;--grad:linear-gradient(135deg,#7c5cff,#d05cff 55%,#ff5c9d)}
 *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
-html{font-size:18px}
-body{background:var(--bg);color:var(--text);font:1rem/1.6 'DM Sans',system-ui,sans-serif;min-height:100vh;padding:max(22px,env(safe-area-inset-top)) 20px max(40px,env(safe-area-inset-bottom));overflow-x:hidden}
-body::before,body::after{content:"";position:fixed;z-index:-1;border-radius:50%;filter:blur(90px);pointer-events:none}
-body::before{width:420px;height:420px;background:#5a3dff66;top:-140px;right:-120px}
-body::after{width:360px;height:360px;background:#3de0c433;bottom:-120px;left:-120px}
-main{max-width:640px;margin:0 auto}
-.top{display:flex;justify-content:space-between;align-items:center}
-.brand{font:800 1.3rem 'Sora',sans-serif;letter-spacing:-.02em;display:flex;align-items:center;gap:11px}
-.brand i{width:34px;height:34px;border-radius:11px;background:linear-gradient(135deg,var(--v),var(--p) 55%,var(--mint));box-shadow:0 6px 22px #7c5cff77}
-.pill{font-size:.78rem;color:var(--mint);border:1px solid #3de0c455;border-radius:99px;padding:4px 12px}
-.upd{display:none;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,var(--mint),#7df0da);color:#04221c;border-radius:18px;padding:12px 12px 12px 18px;margin-top:20px;font-weight:700}
-.upd.on{display:flex}.upd button{background:#04221c;color:#fff;padding:11px 18px;border-radius:12px;font-size:.9rem}
-h1{font:800 clamp(2.4rem,11vw,3.4rem)/1.04 'Sora',sans-serif;letter-spacing:-.04em;margin:44px 0 14px;animation:in .7s ease both}
-@keyframes in{from{opacity:0;transform:translateY(16px)}}
-.sub{color:var(--mute);font-size:1.05rem;max-width:34ch;margin-bottom:28px}
-.panel{background:linear-gradient(160deg,#1a1f4acc,#12163599);border:1px solid var(--line);border-radius:26px;padding:12px;backdrop-filter:blur(14px);box-shadow:0 24px 60px #0007}
-.row{display:flex;gap:8px;align-items:center;background:#0a0c1f;border:1px solid var(--line);border-radius:18px;padding:6px 6px 6px 16px;transition:.2s}
-.row:focus-within{border-color:var(--v);box-shadow:0 0 0 4px #7c5cff33}
-input{flex:1;min-width:0;height:52px;background:none;border:0;outline:0;color:var(--text);font:inherit}
-button{font:700 1rem 'Sora',sans-serif;border:0;border-radius:14px;cursor:pointer;color:#fff;transition:transform .15s,filter .2s}
-button:active{transform:scale(.97)}button:hover{filter:brightness(1.1)}button:disabled{opacity:.6;cursor:wait}
-button:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
-.paste{height:48px;padding:0 18px;background:var(--s2)}
-.big{width:100%;height:62px;margin-top:10px;font-size:1.08rem;background:linear-gradient(135deg,var(--v),var(--p));box-shadow:0 10px 30px #7c5cff55}
-.ghost{background:var(--s2);color:var(--text)}
-.det{height:1.4em;margin:10px 6px 0;font-size:.9rem;color:var(--mint)}
-.msg{color:var(--err);margin:12px 4px 0;min-height:1.5em;font-size:.95rem}
-.perks{display:flex;flex-wrap:wrap;gap:8px 20px;margin:22px 4px 0;color:var(--mute);font-size:.95rem}
-.perks span::before{content:"✓";color:var(--mint);font-weight:700;margin-right:7px}
-.sk{display:none;margin-top:22px;height:300px;border-radius:26px;background:linear-gradient(100deg,var(--s1) 30%,var(--s2) 50%,var(--s1) 70%) 0 0/300% 100%;animation:sh 1.2s linear infinite}
-.sk.on{display:block}@keyframes sh{to{background-position:-300% 0}}
-.card{display:none;margin-top:22px;background:var(--s1);border:1px solid var(--line);border-radius:26px;overflow:hidden;box-shadow:0 24px 60px #0007}
-.card.on{display:block;animation:in .45s ease}
-.tw{position:relative}.thumb{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:#0a0c1f}
-.tw::after{content:"";position:absolute;inset:50% 0 0;background:linear-gradient(transparent,var(--s1))}
-.dur{position:absolute;right:14px;bottom:14px;z-index:1;background:#000a;border-radius:99px;padding:3px 12px;font-size:.85rem}
-.body{padding:6px 20px 22px}
-.title{font:700 1.2rem/1.35 'Sora',sans-serif;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.meta{color:var(--mute);margin:4px 0 18px}
-.chips{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px}
-.chip{background:none;border:1.5px solid var(--line);color:var(--mute);padding:11px 18px;border-radius:99px;font:500 .95rem 'DM Sans',sans-serif}
-.chip[aria-pressed=true]{background:var(--mint);border-color:var(--mint);color:#04221c;font-weight:700}
-.sec{width:100%;height:54px;margin-top:10px}
-h2{font:700 1.1rem 'Sora',sans-serif;margin:34px 4px 12px}
-.rl{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px}
-.ri{flex:0 0 130px;background:none;text-align:left;color:var(--text);font:500 .85rem/1.35 'DM Sans',sans-serif}
-.ri img{width:130px;height:170px;object-fit:cover;border-radius:16px;background:var(--s1);display:block;margin-bottom:8px}
-.ri span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.app{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:38px;background:var(--s1);border:1px solid var(--line);border-radius:22px;padding:16px 16px 16px 20px}
-.app b{font:700 1rem 'Sora',sans-serif;display:block}.app small{color:var(--mute);font-size:.85rem}
-.app button{padding:0 18px;height:48px;background:linear-gradient(135deg,var(--v),var(--p));flex:none}
-.fh{display:flex;justify-content:space-between;align-items:center;margin:34px 4px 12px}.fh h2{margin:0}
-.fb{height:38px;padding:0 14px;font-size:.8rem}
-.fl{display:grid;gap:10px}
-.fi{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:center;background:var(--s1);border:1px solid var(--line);border-radius:18px;padding:10px}
-.fi img{width:48px;height:64px;border-radius:12px;object-fit:cover;background:var(--s2);flex:none}
-.ft{flex:1;min-width:0}
-.fn{font:700 .9rem/1.3 'Sora',sans-serif;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
-.ft small{color:var(--mute);font-size:.78rem}.ft small.gone{color:var(--err)}
-.fa{display:flex;gap:8px;width:100%}.fa button{flex:1;height:42px;font-size:.82rem;background:var(--s2)}.fa .del{color:var(--err)}
-.note{margin:26px 4px 0;color:var(--mute);font-size:.82rem}
-.det:empty{display:none}
-.sheet-bg{position:fixed;inset:0;background:#000a;backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:.3s;z-index:20}
-.sheet-bg.on{opacity:1;pointer-events:auto}
-.sheet{position:fixed;left:0;right:0;bottom:0;max-width:640px;margin:0 auto;z-index:21;background:linear-gradient(170deg,#1c2150f5,#10143a);border:1px solid var(--line);border-bottom:0;border-radius:30px 30px 0 0;padding:12px 22px max(26px,env(safe-area-inset-bottom));transform:translateY(110%);transition:transform .4s cubic-bezier(.2,.9,.3,1);box-shadow:0 -20px 60px #000a}
-.sheet.on{transform:none}
-.grab{display:block;width:44px;height:5px;border-radius:9px;background:var(--line);margin:0 auto 18px}
-.srow{display:flex;gap:14px;align-items:center;margin-bottom:22px}
-.srow img{width:56px;height:74px;border-radius:14px;object-fit:cover;background:var(--s1);flex:none}
-.st{font:700 1.05rem/1.3 'Sora',sans-serif;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.ss{color:var(--mint);font-size:.95rem;margin-top:3px}
-.track{height:14px;border-radius:99px;background:#0a0c1f;overflow:hidden}
-.track b{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--mint),var(--v) 60%,var(--p));box-shadow:0 0 18px #7c5cffaa;transition:width .35s}
-.track.ind b{width:34%!important;animation:ind 1.1s ease-in-out infinite alternate}
-@keyframes ind{to{margin-left:66%}}
-.stats{display:flex;justify-content:space-between;gap:10px;margin:12px 2px 22px;color:var(--mute);font-size:.92rem;min-height:1.5em}
-.stats #spct{color:var(--text);font-weight:700}
-.sbtns{display:flex;flex-wrap:wrap;gap:10px}.sbtns button{flex:1;height:54px}.sbtns .pri{background:linear-gradient(135deg,var(--v),var(--p))}
-.toast{position:fixed;left:50%;bottom:max(26px,env(safe-area-inset-bottom));transform:translate(-50%,30px);background:#fff;color:#0a0c1f;font-weight:700;padding:12px 20px;border-radius:99px;opacity:0;pointer-events:none;transition:.3s;z-index:9;max-width:90vw;text-align:center}
-.toast.on{opacity:1;transform:translate(-50%,0)}
-@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+html{color-scheme:dark}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+button:active{transform:scale(.97)}
+h1,h2,h3,.sora{font-family:'Sora',sans-serif}
+.aura{position:fixed;inset:0;z-index:-1;background:radial-gradient(60% 38% at 10% -4%,rgba(124,92,255,.38),transparent 70%),radial-gradient(50% 32% at 105% 8%,rgba(255,92,157,.24),transparent 70%),radial-gradient(70% 40% at 50% 112%,rgba(61,224,196,.15),transparent 70%),var(--bg)}
+.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.lg{width:20px;height:20px;flex:none;border-radius:6px}
+
+/* header */
+.top{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top,0px) + 12px) 18px 12px;background:linear-gradient(rgba(7,8,26,.92),rgba(7,8,26,.7));backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.hl{display:flex;align-items:center;gap:12px;min-width:0}
+.bic{width:42px;height:42px;border-radius:14px;background:var(--grad);display:grid;place-items:center;box-shadow:0 8px 24px rgba(160,92,255,.45),inset 0 1px 0 rgba(255,255,255,.35)}
+.bic .ic{width:22px;height:22px;stroke:#fff;stroke-width:2.4}
+.brand{font:800 1.35rem 'Sora',sans-serif;letter-spacing:-.02em}
+.ttl{font:700 1.2rem 'Sora',sans-serif}
+.ib{position:relative;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--g1);border:1px solid var(--line)}
+.ib.pulse{animation:pulse .7s ease}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(208,92,255,.8)}100%{box-shadow:0 0 0 18px rgba(208,92,255,0)}}
+.bdg{position:absolute;top:-3px;right:-3px;min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:var(--grad);font:700 .68rem/19px 'DM Sans';text-align:center;box-shadow:0 2px 8px rgba(255,92,157,.5)}
+.bdg.dot{min-width:11px;width:11px;height:11px;padding:0;top:2px;right:2px;background:var(--mint);box-shadow:0 0 0 3px var(--bg)}
+.menu{position:fixed;z-index:40;top:calc(env(safe-area-inset-top,0px) + 66px);right:16px;width:250px;padding:6px;border-radius:20px;background:rgba(20,22,52,.96);border:1px solid var(--line);backdrop-filter:blur(20px);box-shadow:0 24px 60px rgba(0,0,0,.6);animation:pop .18s ease;transform-origin:top right}
+@keyframes pop{from{opacity:0;transform:scale(.92)}}
+.menu button{display:flex;align-items:center;gap:12px;width:100%;padding:13px 12px;border-radius:14px;font-weight:500;text-align:left}
+.menu button:active{background:var(--g2)}
+.menu .ic{color:var(--p)}
+.menu .sp{flex:1}
+.cnt{font:700 .72rem 'DM Sans';padding:2px 8px;border-radius:9px;background:var(--grad)}
+.dt2{width:9px;height:9px;border-radius:50%;background:var(--mint);box-shadow:0 0 10px var(--mint)}
+
+main{max-width:580px;margin:0 auto;padding:0 18px 70px}
+[hidden]{display:none!important}
+.page[hidden]{display:none}
+.page{animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}}
+
+/* update banner */
+.upd{display:none;align-items:center;justify-content:space-between;gap:12px;margin:6px 0 4px;padding:12px 12px 12px 18px;border-radius:22px;background:linear-gradient(135deg,rgba(61,224,196,.25),rgba(124,92,255,.22));border:1px solid rgba(61,224,196,.4)}
+.upd.on{display:flex}
+.upd b{font:700 .95rem 'Sora'}
+.upd button{padding:11px 18px;border-radius:15px;background:#06130f;color:var(--mint);font-weight:700}
+
+/* hero */
+.hero{padding:22px 2px 6px}
+.hero h1{font-weight:800;font-size:clamp(2rem,9.4vw,2.9rem);line-height:1.05;letter-spacing:-.035em}
+.gt{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{margin-top:12px;color:var(--mute);line-height:1.55;font-size:1.02rem}
+
+.panel{margin-top:22px;padding:14px;border-radius:28px;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.035));border:1px solid var(--line);box-shadow:0 30px 70px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.1)}
+.field{display:flex;align-items:center;gap:10px;padding:6px 6px 6px 14px;border-radius:20px;background:rgba(0,0,0,.35);border:1px solid var(--line)}
+.field:focus-within{border-color:rgba(208,92,255,.7);box-shadow:0 0 0 4px rgba(208,92,255,.14)}
+.field .lead{display:grid;place-items:center;width:24px;height:24px;color:var(--mute)}
+.field .lead .lg{width:24px;height:24px}
+.field input{flex:1;min-width:0;height:48px;background:none;border:0;outline:0;color:var(--text);font:500 1rem 'DM Sans'}
+.field input::placeholder{color:#6e74a8}
+.pastebtn{display:flex;align-items:center;gap:6px;padding:0 14px;height:42px;border-radius:14px;background:var(--g2);font-weight:700;font-size:.9rem}
+.pri{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:56px;margin-top:12px;border-radius:19px;background:var(--grad);font:700 1.02rem 'Sora',sans-serif;color:#fff;box-shadow:0 14px 34px rgba(160,92,255,.5),inset 0 1px 0 rgba(255,255,255,.35);position:relative;overflow:hidden}
+.pri::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.28),transparent);animation:shine 3.2s infinite}
+@keyframes shine{to{left:130%}}
+.pri:disabled{opacity:.55}
+.ghost{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:48px;padding:0 18px;border-radius:16px;background:var(--g1);border:1px solid var(--line);font-weight:700;font-size:.92rem}
+.msg{min-height:20px;margin:12px 6px 0;color:var(--err);font-size:.92rem}
+.plats{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.pl{display:flex;align-items:center;gap:8px;padding:8px 12px 8px 8px;border-radius:14px;background:var(--g1);border:1px solid var(--line);font-size:.84rem;font-weight:500;color:var(--mute);transition:.2s}
+.pl.on{color:var(--text);border-color:rgba(208,92,255,.8);background:rgba(208,92,255,.14)}
+
+/* card */
+.card{display:none;margin-top:20px;border-radius:28px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.035));border:1px solid var(--line);box-shadow:0 30px 70px rgba(0,0,0,.45)}
+.card.on{display:block;animation:fade .3s ease}
+.tw{position:relative;background:#000;overflow:hidden;display:flex;justify-content:center;min-height:120px}
+.tbg{position:absolute;inset:-30px;width:calc(100% + 60px);height:calc(100% + 60px);object-fit:cover;filter:blur(26px) brightness(.55) saturate(1.3)}
+.thumb{position:relative;display:block;max-width:100%;max-height:min(68vh,560px);width:auto;height:auto;object-fit:contain}
+.tbadge{position:absolute;left:12px;top:12px;display:flex;align-items:center;gap:7px;padding:6px 12px 6px 7px;border-radius:12px;background:rgba(0,0,0,.6);backdrop-filter:blur(10px);font-size:.82rem;font-weight:700}
+.tdur{position:absolute;right:12px;bottom:12px;padding:5px 10px;border-radius:10px;background:rgba(0,0,0,.65);font:700 .8rem 'DM Sans'}
+.cb{padding:18px}
+.ctitle{font:700 1.06rem/1.35 'Sora',sans-serif;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.cauth{display:flex;align-items:center;gap:8px;margin-top:8px;color:var(--mute);font-size:.9rem}
+.lab{margin:18px 2px 10px;font:700 .74rem 'DM Sans';letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.qs{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:9px}
+.q{display:flex;flex-direction:column;gap:3px;align-items:flex-start;padding:12px 13px;border-radius:18px;background:var(--g1);border:1px solid var(--line);text-align:left;transition:.15s}
+.q b{font:800 1.08rem 'Sora',sans-serif}
+.q small{color:var(--mute);font-size:.76rem}
+.q.on{background:linear-gradient(135deg,rgba(124,92,255,.32),rgba(255,92,157,.22));border-color:rgba(208,92,255,.9);box-shadow:0 0 0 3px rgba(208,92,255,.15)}
+.q.k4 b{background:linear-gradient(90deg,var(--gold),#ff9f5c);-webkit-background-clip:text;background-clip:text;color:transparent}
+.q.k2 b{color:#b9a6ff}
+.q.wide{grid-column:span 2}
+.cbtns{display:grid;gap:10px;margin-top:6px}
+.cbtns .ghost{width:100%;height:50px}
+
+.sk{display:none;margin-top:20px;height:340px;border-radius:28px;background:linear-gradient(100deg,rgba(255,255,255,.04) 30%,rgba(255,255,255,.1) 50%,rgba(255,255,255,.04) 70%) 0 0/300% 100%;animation:sh 1.3s infinite;border:1px solid var(--line)}
+.sk.on{display:block}
+@keyframes sh{to{background-position:-100% 0}}
+
+/* features */
+.sec{margin:34px 4px 14px;font:700 .74rem 'DM Sans';letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.feat{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ft{padding:16px;border-radius:22px;background:var(--g1);border:1px solid var(--line)}
+.ft i{display:grid;place-items:center;width:40px;height:40px;border-radius:13px;background:var(--grad);margin-bottom:12px;box-shadow:0 8px 18px rgba(160,92,255,.35)}
+.ft i .ic{stroke:#fff}
+.ft b{display:block;font:700 .95rem 'Sora'}
+.ft span{display:block;margin-top:5px;color:var(--mute);font-size:.82rem;line-height:1.45}
+.note{margin:26px 4px 0;color:#6e74a8;font-size:.82rem;line-height:1.5;text-align:center}
+
+/* downloads page */
+.sum{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 4px 14px;color:var(--mute);font-size:.92rem}
+.sum b{color:var(--text);font:700 1rem 'Sora'}
+.fil{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 12px;scrollbar-width:none}
+.fil::-webkit-scrollbar{display:none}
+.fil button{flex:none;padding:9px 16px;border-radius:14px;background:var(--g1);border:1px solid var(--line);font-weight:700;font-size:.86rem;color:var(--mute)}
+.fil button.on{background:var(--grad);border-color:transparent;color:#fff}
+.dl{display:grid;gap:12px}
+.di{padding:12px;border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.03));border:1px solid var(--line)}
+.di.err{border-color:rgba(255,122,138,.45)}
+.dtop{display:flex;gap:13px}
+.dth{position:relative;flex:none;width:64px;height:86px;border-radius:16px;overflow:hidden;background:#111334}
+.dth img{width:100%;height:100%;object-fit:cover;display:block}
+.kd{position:absolute;right:5px;bottom:5px;width:24px;height:24px;border-radius:8px;background:rgba(0,0,0,.7);display:grid;place-items:center}
+.kd .ic{width:13px;height:13px}
+.dmeta{flex:1;min-width:0}
+.dt{font:700 .95rem/1.3 'Sora',sans-serif;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.dd{display:flex;align-items:center;flex-wrap:wrap;gap:6px 7px;margin-top:8px;font-size:.82rem;color:var(--text)}
+.dd .lg{width:18px;height:18px;border-radius:5px}
+.dd i{color:#585e92;font-style:normal}
+.tag{padding:2px 8px;border-radius:8px;background:rgba(124,92,255,.25);font-weight:700;font-size:.76rem}
+.tag.k4{background:rgba(255,210,122,.2);color:var(--gold)}
+.dw{display:flex;align-items:center;gap:6px;margin-top:7px;color:var(--mute);font-size:.8rem}
+.dw .ic{width:14px;height:14px}
+.pb{height:7px;margin-top:12px;border-radius:5px;background:rgba(255,255,255,.08);overflow:hidden}
+.pb i{display:block;height:100%;width:0;border-radius:5px;background:var(--grad);transition:width .4s}
+.ps{margin-top:8px;color:var(--mute);font-size:.82rem}
+.di.err .ps{color:var(--err)}
+.da{display:flex;gap:8px;margin-top:12px}
+.da button{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:42px;border-radius:14px;background:var(--g2);font-weight:700;font-size:.84rem}
+.da .del{color:var(--err);flex:none;width:48px}
+.da .go{background:var(--grad)}
+.gone{margin-top:10px;color:var(--err);font-size:.84rem}
+.empty{display:none;flex-direction:column;align-items:center;text-align:center;padding:60px 20px;color:var(--mute);gap:10px}
+.empty.on{display:flex}
+.empty i{display:grid;place-items:center;width:84px;height:84px;border-radius:28px;background:var(--g1);border:1px solid var(--line);margin-bottom:6px}
+.empty i .ic{width:36px;height:36px;color:var(--p)}
+.empty b{font:700 1.1rem 'Sora';color:var(--text)}
+.drow{display:flex;gap:10px;margin-top:18px}
+.drow .ghost{flex:1;height:46px}
+
+/* update page */
+.ucard{margin-top:14px;padding:30px 22px 24px;border-radius:30px;text-align:center;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.035));border:1px solid var(--line);box-shadow:0 30px 70px rgba(0,0,0,.45)}
+.uic{width:84px;height:84px;margin:0 auto 16px;border-radius:28px;background:var(--grad);display:grid;place-items:center;box-shadow:0 16px 40px rgba(160,92,255,.55),inset 0 1px 0 rgba(255,255,255,.4)}
+.uic .ic{width:42px;height:42px;stroke:#fff;stroke-width:2.2}
+.ucard h2{font-weight:800;font-size:1.5rem}
+.ucard .uv{margin-top:6px;color:var(--mute)}
+.ust{margin-top:14px;font:700 1rem 'Sora';min-height:24px}
+.ust.good{color:var(--mint)}
+.hint{margin-top:12px;color:var(--mute);font-size:.84rem;line-height:1.5}
+.ucard .pri{margin-top:20px}
+.ucard .ghost{width:100%;margin-top:10px}
+
+/* flyer + toast */
+.flyer{position:fixed;z-index:60;left:0;right:0;margin:0 auto;top:calc(env(safe-area-inset-top,0px) + 10px);width:min(92vw,420px);display:flex;align-items:center;gap:12px;padding:10px 16px 10px 10px;border-radius:22px;background:rgba(24,26,62,.97);border:1px solid rgba(208,92,255,.55);box-shadow:0 20px 50px rgba(0,0,0,.6),0 0 0 4px rgba(208,92,255,.12);opacity:0;transform:translateY(-150%);pointer-events:none;transition:transform .55s cubic-bezier(.2,.9,.25,1),opacity .4s}
+.flyer.in{opacity:1;transform:translateY(0);pointer-events:auto}
+.flyer.out{opacity:0;pointer-events:none;transition:transform .7s cubic-bezier(.55,0,.25,1),opacity .7s ease-in}
+.flyer img{width:46px;height:46px;border-radius:14px;object-fit:cover;background:#111334;flex:none}
+.flyer div{min-width:0}
+.flyer b{display:block;font:700 .92rem 'Sora'}
+.flyer span{display:block;margin-top:2px;color:var(--mute);font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tabs{display:flex;gap:6px;padding:5px;margin:4px 0 6px;border-radius:20px;background:var(--g1);border:1px solid var(--line)}
+.tabs button{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;height:44px;border-radius:15px;font-weight:700;font-size:.92rem;color:var(--mute);transition:.2s}
+.tabs button.on{background:var(--grad);color:#fff;box-shadow:0 8px 20px rgba(160,92,255,.4)}
+.tabs .lg{width:20px;height:20px}
+.seg{display:flex;gap:4px;margin-top:12px;padding:4px;border-radius:16px;background:rgba(0,0,0,.3);border:1px solid var(--line)}
+.seg button{flex:1;height:38px;border-radius:12px;font-weight:700;font-size:.84rem;color:var(--mute)}
+.seg button.on{background:var(--g2);color:var(--text)}
+.engnote,.stat{margin:10px 6px 0;color:var(--mute);font-size:.82rem;line-height:1.45}
+.stat:empty,.engnote:empty{display:none}
+.sw{display:flex;align-items:center;gap:12px;cursor:pointer;font-weight:500;font-size:.95rem}
+.sw input{position:absolute;opacity:0;pointer-events:none}
+.sw i{position:relative;flex:none;width:48px;height:28px;border-radius:14px;background:var(--g2);border:1px solid var(--line);transition:.2s}
+.sw i::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}
+.sw input:checked+i{background:var(--grad);border-color:transparent}
+.sw input:checked+i::after{transform:translateX(20px)}
+.sw em{color:var(--mute);font-style:normal;font-size:.82rem}
+.cutbox{margin-top:16px;padding:16px 14px 14px;border-radius:20px;background:rgba(0,0,0,.28);border:1px solid var(--line);display:grid;gap:14px}
+.rng{position:relative;height:34px;margin:0 6px}
+.rtrack{position:absolute;left:0;right:0;top:14px;height:6px;border-radius:3px;background:rgba(255,255,255,.12)}
+.rtrack i{position:absolute;top:0;bottom:0;border-radius:3px;background:var(--grad)}
+.rng input{position:absolute;left:-6px;width:calc(100% + 12px);top:0;height:34px;margin:0;background:none;-webkit-appearance:none;appearance:none;pointer-events:none}
+.rng input::-webkit-slider-runnable-track{background:none;height:34px}
+.rng input::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:26px;height:26px;margin-top:4px;border-radius:50%;background:#fff;border:5px solid #b45cff;box-shadow:0 3px 10px rgba(0,0,0,.5)}
+.rng input::-moz-range-thumb{pointer-events:auto;width:16px;height:16px;border-radius:50%;background:#fff;border:5px solid #b45cff}
+.tt{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tt small{display:block;margin:0 2px 6px;color:var(--mute);font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+.tf{display:flex;align-items:center;gap:6px}
+.tf input{flex:1;min-width:0;width:100%;height:44px;text-align:center;border-radius:13px;background:rgba(0,0,0,.35);border:1px solid var(--line);color:var(--text);font:700 1rem 'Sora',sans-serif;outline:0}
+.tf input:focus{border-color:rgba(208,92,255,.7)}
+.tf button{flex:none;width:36px;height:44px;border-radius:12px;background:var(--g2);font:700 1.1rem 'DM Sans'}
+.clipinfo{text-align:center;color:var(--mint);font-weight:700;font-size:.9rem}
+.chap{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.chap::-webkit-scrollbar{display:none}
+.chap button{flex:none;max-width:220px;padding:8px 12px;border-radius:12px;background:var(--g1);border:1px solid var(--line);font-size:.78rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag.clip{background:rgba(61,224,196,.18);color:var(--mint)}
+.toast{width:max-content;position:fixed;z-index:70;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);transform:translate(-50%,30px);max-width:88vw;padding:13px 20px;border-radius:16px;background:#1b1e48;border:1px solid var(--line);box-shadow:0 14px 40px rgba(0,0,0,.6);font-size:.92rem;opacity:0;pointer-events:none;transition:.3s}
+.toast.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+<radialGradient id="igg" cx=".25" cy="1.05" r="1.25"><stop offset="0" stop-color="#ffd776"/><stop offset=".28" stop-color="#f9703b"/><stop offset=".55" stop-color="#e1306c"/><stop offset=".82" stop-color="#833ab4"/><stop offset="1" stop-color="#405de6"/></radialGradient>
+</defs>
+<symbol id="l-instagram" viewBox="0 0 24 24"><rect width="24" height="24" rx="6.2" fill="url(#igg)"/><rect x="5.2" y="5.2" width="13.6" height="13.6" rx="4" fill="none" stroke="#fff" stroke-width="1.7"/><circle cx="12" cy="12" r="3.3" fill="none" stroke="#fff" stroke-width="1.7"/><circle cx="16.4" cy="7.6" r="1" fill="#fff"/></symbol>
+<symbol id="l-tiktok" viewBox="0 0 24 24"><rect width="24" height="24" rx="6.2" fill="#010101"/><g transform="translate(4.7 4.5) scale(.63)"><path transform="translate(-1.1 -.8)" fill="#25f4ee" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/><path transform="translate(1.1 .9)" fill="#fe2c55" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/><path fill="#fff" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></g></symbol>
+<symbol id="l-facebook" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#fff"/><path fill="#1877f2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></symbol>
+
+<symbol id="l-youtube" viewBox="0 0 24 24"><rect width="24" height="24" rx="6.2" fill="#ff0033"/><path d="M19.6 8.1a1.9 1.9 0 0 0-1.35-1.35C17.05 6.4 12 6.4 12 6.4s-5.05 0-6.25.35A1.9 1.9 0 0 0 4.4 8.1C4.1 9.3 4.1 12 4.1 12s0 2.7.3 3.9a1.9 1.9 0 0 0 1.35 1.35c1.2.35 6.25.35 6.25.35s5.05 0 6.25-.35a1.9 1.9 0 0 0 1.35-1.35c.3-1.2.3-3.9.3-3.9s0-2.7-.3-3.9z" fill="#fff"/><path d="M10.4 14.6V9.4L14.9 12z" fill="#ff0033"/></symbol>
+<symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+<symbol id="i-paste" viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></symbol>
+<symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.8" fill="currentColor" stroke="none"/></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><polygon points="7 4 20 12 7 20 7 4" fill="currentColor"/></symbol>
+<symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+<symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></symbol>
+<symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></symbol>
+<symbol id="i-open" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+<symbol id="i-folder" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
+<symbol id="i-zap" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-video" viewBox="0 0 24 24"><rect x="2" y="6" width="14" height="12" rx="3"/><path d="M22 8l-6 4 6 4z"/></symbol>
+<symbol id="i-hd" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M7 9v6M13 9v6M7 12h6M17 9h1a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-1z" stroke-width="1.8"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></symbol>
+<symbol id="i-arrowup" viewBox="0 0 24 24"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></symbol>
+</svg>
+<div class="aura"></div>
+
+<header class="top">
+  <div class="hl" id="hl"></div>
+  <button class="ib" id="menuBtn" type="button" aria-label="Menu"><svg class="ic"><use href="#i-more"/></svg><span class="bdg" id="bdg" hidden></span></button>
+</header>
+<div class="menu" id="menu" hidden>
+  <button type="button" data-go="downloads"><svg class="ic"><use href="#i-download"/></svg>Downloads<span class="sp"></span><span class="cnt" id="mcnt" hidden></span></button>
+  <button type="button" data-go="update"><svg class="ic"><use href="#i-refresh"/></svg>Check for updates<span class="sp"></span><span class="dt2" id="mdot" hidden></span></button>
+</div>
+
 <main>
-  <div class="top"><div class="brand"><i></i>ClipGrab</div><span class="pill">Free</span></div>
-  <div class="upd" id="upd"><span>A new version is ready</span><button id="updBtn" type="button">Update</button></div>
-
-  <h1>Save any reel in full HD.</h1>
-  <p class="sub">Paste a link from Instagram, TikTok or Facebook. We fetch the best quality available.</p>
-
-  <div class="panel">
-    <div class="row">
-      <input id="url" type="url" placeholder="Paste video link" aria-label="Video link" autocomplete="off">
-      <button class="paste" id="paste" type="button">Paste</button>
-    </div>
-    <p class="det" id="det"></p>
-    <button class="big" id="fetch" type="button">Fetch video</button>
+<!-- HOME -->
+<section class="page" id="p-home">
+  <div class="tabs"><button type="button" data-t="home" class="on">Reels &amp; more</button><button type="button" data-t="youtube"><svg class="lg"><use href="#l-youtube"/></svg>YouTube</button></div>
+  <div class="upd" id="upd"><b>A new version is ready</b><button type="button" id="updBtn">Update</button></div>
+  <div class="hero">
+    <h1>Save any reel in <span class="gt">up to 4K</span>.</h1>
+    <p>Paste a link from Instagram, TikTok or Facebook. We fetch the best quality available.</p>
   </div>
-  <p class="msg" id="msg" role="alert"></p>
-  <div class="perks"><span>Original quality</span><span>Clean, no watermark where possible</span><span>Free to use</span></div>
+  <div class="panel">
+    <div class="field">
+      <span class="lead" id="lead"><svg class="ic"><use href="#i-link"/></svg></span>
+      <input id="url" type="url" inputmode="url" placeholder="Paste reel or video link" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="pastebtn" id="paste" type="button"><svg class="ic" style="width:17px;height:17px"><use href="#i-paste"/></svg>Paste</button>
+    </div>
+    <button class="pri" id="fetch" type="button"><svg class="ic"><use href="#i-zap"/></svg>Get video</button>
+    <p class="msg" id="msg"></p>
+    <div class="plats">
+      <span class="pl" data-p="instagram"><svg class="lg"><use href="#l-instagram"/></svg>Instagram</span>
+      <span class="pl" data-p="tiktok"><svg class="lg"><use href="#l-tiktok"/></svg>TikTok</span>
+      <span class="pl" data-p="facebook"><svg class="lg"><use href="#l-facebook"/></svg>Facebook</span>
+    </div>
+  </div>
 
   <div class="sk" id="sk"></div>
-  <section class="card" id="card">
-    <div class="tw"><img class="thumb" id="thumb" alt="" referrerpolicy="no-referrer"><span class="dur" id="dur"></span></div>
-    <div class="body">
-      <p class="title" id="title"></p>
-      <p class="meta" id="meta"></p>
-      <div class="chips" id="chips"></div>
-      <button class="big" id="dl" type="button" style="margin-top:0">Download video</button>
-      <button class="ghost sec" id="img" type="button">Save cover image</button>
+  <div class="card" id="card">
+    <div class="tw">
+      <img class="tbg" id="tbg" alt="" referrerpolicy="no-referrer">
+      <img class="thumb" id="thumb" alt="" referrerpolicy="no-referrer">
+      <span class="tbadge" id="tplat"></span>
+      <span class="tdur" id="tdur"></span>
     </div>
-  </section>
+    <div class="cb">
+      <h3 class="ctitle" id="ctitle"></h3>
+      <div class="cauth" id="cauth"></div>
+      <div class="lab">Quality</div>
+      <div class="qs" id="qs"></div>
+      <div class="cbtns" style="margin-top:18px">
+        <button class="pri" id="dl" type="button" style="margin-top:0"><svg class="ic"><use href="#i-download"/></svg><span id="dltxt">Download</span></button>
+        <button class="ghost" id="cover" type="button"><svg class="ic"><use href="#i-image"/></svg>Save cover image</button>
+      </div>
+    </div>
+  </div>
 
-  <section id="recent" hidden><h2>Recent</h2><div class="rl" id="rlist"></div></section>
-
-  <section id="files" hidden>
-    <div class="fh"><h2>Downloads</h2><button class="ghost fb" id="fold" type="button">Open folder</button></div>
-    <div class="fl" id="flist"></div>
-  </section>
-
-  <div class="app">
-    <div><b>ClipGrab app</b><small id="ver">Checking…</small></div>
-    <button id="chk" type="button">Check for update</button>
+  <div class="sec">Why ClipGrab</div>
+  <div class="feat">
+    <div class="ft"><i><svg class="ic"><use href="#i-hd"/></svg></i><b>Up to 4K</b><span>Every resolution the video offers, plus a Best option.</span></div>
+    <div class="ft"><i><svg class="ic"><use href="#i-layers"/></svg></i><b>Many at once</b><span>Start several downloads and keep browsing.</span></div>
+    <div class="ft"><i><svg class="ic"><use href="#i-music"/></svg></i><b>MP3 audio</b><span>Pull just the sound as a 192 kbps MP3.</span></div>
+    <div class="ft"><i><svg class="ic"><use href="#i-shield"/></svg></i><b>No watermark</b><span>Clean TikTok files where the source allows it.</span></div>
   </div>
   <p class="note">Only download videos you own or have permission to use.</p>
+</section>
+
+<!-- YOUTUBE -->
+<section class="page" id="p-youtube" hidden>
+  <div class="tabs"><button type="button" data-t="home">Reels &amp; more</button><button type="button" data-t="youtube" class="on"><svg class="lg"><use href="#l-youtube"/></svg>YouTube</button></div>
+  <div class="hero">
+    <h1>YouTube, <span class="gt">your way</span>.</h1>
+    <p>Full videos up to 4K, MP3 audio, or cut out just the part you need.</p>
+  </div>
+  <div class="panel">
+    <div class="field">
+      <span class="lead" id="ylead"><svg class="ic"><use href="#i-link"/></svg></span>
+      <input id="yurl" type="url" inputmode="url" placeholder="Paste YouTube link" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="pastebtn" id="ypaste" type="button"><svg class="ic" style="width:17px;height:17px"><use href="#i-paste"/></svg>Paste</button>
+    </div>
+    <div class="seg" id="yeng" hidden>
+      <button type="button" data-e="auto">Auto</button><button type="button" data-e="phone">On phone</button><button type="button" data-e="server">Server</button>
+    </div>
+    <p class="engnote" id="yengnote"></p>
+    <button class="pri" id="yfetch" type="button"><svg class="ic"><use href="#i-zap"/></svg>Get video</button>
+    <p class="stat" id="ystat"></p>
+    <p class="msg" id="ymsg"></p>
+  </div>
+
+  <div class="sk" id="ysk"></div>
+  <div class="card" id="ycard">
+    <div class="tw">
+      <img class="tbg" id="ytbg" alt="" referrerpolicy="no-referrer">
+      <img class="thumb" id="ythumb" alt="" referrerpolicy="no-referrer">
+      <span class="tbadge"><svg class="lg"><use href="#l-youtube"/></svg>YouTube</span>
+      <span class="tdur" id="ytdur"></span>
+    </div>
+    <div class="cb">
+      <h3 class="ctitle" id="yctitle"></h3>
+      <div class="cauth" id="ycauth"></div>
+      <div class="lab">Quality</div>
+      <div class="qs" id="yqs"></div>
+      <div id="ytrim">
+        <div class="lab">Cut a part</div>
+        <label class="sw"><input type="checkbox" id="ycut"><i></i><span>Download only part of the video</span></label>
+        <div class="cutbox" id="ycutbox" hidden>
+          <div class="rng"><div class="rtrack"><i id="rfill"></i></div><input type="range" id="rs" min="0" max="100" step="1" value="0"><input type="range" id="re" min="0" max="100" step="1" value="100"></div>
+          <div class="tt">
+            <div><small>Start</small><div class="tf"><button type="button" data-n="s-1">−</button><input id="ys" inputmode="numeric" value="0:00"><button type="button" data-n="s+1">+</button></div></div>
+            <div><small>End</small><div class="tf"><button type="button" data-n="e-1">−</button><input id="ye" inputmode="numeric" value="0:00"><button type="button" data-n="e+1">+</button></div></div>
+          </div>
+          <p class="clipinfo" id="yclip"></p>
+          <div class="chap" id="ychap"></div>
+          <label class="sw"><input type="checkbox" id="yprec" checked><i></i><span>Frame-accurate cut <em>(slower)</em></span></label>
+        </div>
+      </div>
+      <div class="cbtns" style="margin-top:20px">
+        <button class="pri" id="ydl" type="button" style="margin-top:0"><svg class="ic"><use href="#i-download"/></svg><span id="ydltxt">Download</span></button>
+        <button class="ghost" id="ycover" type="button"><svg class="ic"><use href="#i-image"/></svg>Save thumbnail</button>
+      </div>
+    </div>
+  </div>
+  <p class="note">Only download videos you own or have permission to use. Respect YouTube’s terms and creators’ rights.</p>
+</section>
+
+<!-- DOWNLOADS -->
+<section class="page" id="p-downloads" hidden>
+  <div class="sum" id="dsum"></div>
+  <div class="fil" id="dfil">
+    <button type="button" data-f="all" class="on">All</button>
+    <button type="button" data-f="video">Videos</button>
+    <button type="button" data-f="audio">Audio</button>
+    <button type="button" data-f="image">Images</button>
+  </div>
+  <div class="dl" id="dlist"></div>
+  <div class="empty" id="dempty"><i><svg class="ic"><use href="#i-download"/></svg></i><b>No downloads yet</b><span>Videos you save will show up here with their quality, size and time.</span></div>
+  <div class="drow" id="drow">
+    <button class="ghost" id="dfolder" type="button"><svg class="ic"><use href="#i-folder"/></svg>Open folder</button>
+    <button class="ghost" id="dclear" type="button"><svg class="ic"><use href="#i-trash"/></svg>Clear history</button>
+  </div>
+</section>
+
+<!-- UPDATE -->
+<section class="page" id="p-update" hidden>
+  <div class="ucard">
+    <div class="uic"><svg class="ic"><use href="#i-download"/></svg></div>
+    <h2>ClipGrab</h2>
+    <p class="uv" id="uver"></p>
+    <p class="ust" id="ustat"></p>
+    <div class="pb" id="ubarw" hidden><i id="ubar"></i></div>
+    <p class="hint" id="uhint" hidden>If Android says “App not installed”, uninstall the old ClipGrab once, then install again.</p>
+    <button class="pri" id="ubtn" type="button">Check for updates</button>
+    <button class="ghost" id="uagain" type="button" hidden>Download again</button>
+    <button class="ghost" id="uengine" type="button" hidden>Update YouTube engine</button>
+    <p class="hint" id="uenghint" hidden>YouTube changes often. If the On-phone engine stops working, update it here (needs internet).</p>
+  </div>
+</section>
 </main>
-<div class="sheet-bg" id="sbg"></div>
-<aside class="sheet" id="sheet" aria-live="polite">
-  <i class="grab"></i>
-  <div class="srow"><img id="sthumb" alt="" referrerpolicy="no-referrer"><div><p class="st" id="stitle"></p><p class="ss" id="sstage"></p></div></div>
-  <div class="track" id="strack"><b id="sbar"></b></div>
-  <div class="stats"><span id="spct"></span><span id="sspd"></span><span id="ssz"></span></div>
-  <div class="sbtns"><button class="ghost" id="scancel" type="button">Cancel</button><button class="pri" id="sopen" type="button" hidden>Open</button><button class="ghost" id="sagain" type="button" hidden>Re-download</button></div>
-</aside>
-<div class="toast" id="toast" role="status"></div>
+
+<div class="flyer" id="flyer"></div>
+<div class="toast" id="toast"></div>
 
 <script>
 // Leave empty when Flask serves this page. For GitHub Pages, set your backend URL.
@@ -154,207 +413,550 @@ const GITHUB_REPO = "rizwanur026/clipgrab";
 const $ = id => document.getElementById(id);
 const native = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
 const openExt = u => { const B = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Browser; B ? B.open({url:u}) : window.open(u, "_blank"); };
-const say = t => $("msg").textContent = t || "";
-const mmss = s => s ? Math.floor(s/60) + ":" + String(Math.round(s%60)).padStart(2,"0") : "";
-let quality = "best", cur = null, tt;
-const toast = t => { const e = $("toast"); e.textContent = t; e.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => e.classList.remove("on"), 2600); };
-const plat = u => /tiktok/i.test(u) ? "TikTok" : /instagram/i.test(u) ? "Instagram" : /facebook|fb\.watch|fb\.com/i.test(u) ? "Facebook" : "";
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 const abs = p => new URL(API + p, location.href).href;
-const go = u => native ? openExt(u) : (window.location.href = u);
+const nat = (f, ...a) => { try { return window.ClipNative && typeof ClipNative[f] === "function" ? ClipNative[f](...a) : undefined; } catch { return undefined; } };
+const ic = (n, s) => `<svg class="ic"${s ? ` style="${s}"` : ""}><use href="#i-${n}"/></svg>`;
+const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const mmss = s => s ? Math.floor(s/60) + ":" + String(Math.round(s%60)).padStart(2,"0") : "";
+const fmtB = n => n ? (n >= 1e9 ? (n/1e9).toFixed(2) + " GB" : n >= 1e6 ? Math.round(n/1e6) + " MB" : Math.max(1, Math.round(n/1e3)) + " KB") : "";
+const resLabel = h => h >= 4320 ? "8K" : h >= 2160 ? "4K" : h >= 1440 ? "2K" : h + "p";
+const plat = u => /youtube\.com|youtu\.be/i.test(u) ? "youtube" : /tiktok/i.test(u) ? "tiktok" : /instagram/i.test(u) ? "instagram" : /facebook|fb\.watch|fb\.com/i.test(u) ? "facebook" : "";
+const PNAME = {instagram:"Instagram", tiktok:"TikTok", facebook:"Facebook", youtube:"YouTube"};
+const yt = (f, ...a) => { try { return window.ClipYT && typeof ClipYT[f] === "function" ? ClipYT[f](...a) : undefined; } catch { return undefined; } };
+const phoneOK = () => !!(window.ClipYT && typeof ClipYT.infoStart === "function");
+const logo = p => p ? `<svg class="lg"><use href="#l-${p}"/></svg>` : "";
+function fmtWhen(t) {
+  if (!t) return "";
+  const d = new Date(t), n = new Date(), tm = d.toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
+  const diff = Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
+  if (diff === 0) return "Today, " + tm;
+  if (diff === 1) return "Yesterday, " + tm;
+  return d.toLocaleDateString([], {day:"numeric", month:"short", year: d.getFullYear() !== n.getFullYear() ? "numeric" : undefined}) + ", " + tm;
+}
+let tt, tgo = null;
+function toast(t, go) { const e = $("toast"); e.textContent = t; tgo = go || null; e.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => e.classList.remove("on"), 2800); }
+$("toast").onclick = () => { if (tgo) tgo(); $("toast").classList.remove("on"); };
 
-$("url").addEventListener("input", () => { const p = plat($("url").value); $("det").textContent = p ? p + " link detected" : ""; });
+/* ---------- pages + menu ---------- */
+const TITLES = {downloads:"Downloads", update:"Updates"};
+let navN = 0;
+const nav = p => { navN++; location.hash = p; };
+const back = () => navN > 0 ? (navN--, history.back()) : location.replace("#home");
+function setHead(p) {
+  $("hl").innerHTML = (p === "home" || p === "youtube")
+    ? `<span class="bic">${ic("download")}</span><b class="brand">ClipGrab</b>`
+    : `<button class="ib" id="back" type="button" aria-label="Back">${ic("back")}</button><b class="ttl">${TITLES[p]}</b>`;
+  if ($("back")) $("back").onclick = back;
+}
+function route() {
+  const h = location.hash.slice(1), p = (TITLES[h] || h === "youtube") ? h : "home";
+  for (const k of ["home", "youtube", "downloads", "update"]) $("p-" + k).hidden = k !== p;
+  if (p === "home" || p === "youtube") navN = 0;
+  setHead(p); closeMenu(); window.scrollTo(0, 0);
+  if (p === "downloads") renderDownloads();
+  if (p === "update") updEnter();
+}
+window.addEventListener("hashchange", route);
+const closeMenu = () => $("menu").hidden = true;
+$("menuBtn").onclick = e => { e.stopPropagation(); $("menu").hidden = !$("menu").hidden; };
+document.addEventListener("click", e => { if (!$("menu").contains(e.target)) closeMenu(); });
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => location.replace("#" + b.dataset.t));
+$("menu").querySelectorAll("[data-go]").forEach(b => b.onclick = () => { closeMenu(); nav(b.dataset.go); });
+function updateBadge() {
+  const n = items.filter(i => i.state === "prep" || i.state === "dl").length, b = $("bdg");
+  b.hidden = !n && !pending; b.className = "bdg" + (n ? "" : " dot"); b.textContent = n || "";
+  $("mcnt").hidden = !n; $("mcnt").textContent = n; $("mdot").hidden = !pending;
+}
+
+/* ---------- home: link, platform, fetch ---------- */
+let quality = "best", cur = null, qs = [], pick = null;
+const say = t => $("msg").textContent = t || "";
+$("url").addEventListener("input", () => {
+  const p = plat($("url").value);
+  $("lead").innerHTML = p ? logo(p) : ic("link");
+  document.querySelectorAll(".pl").forEach(e => e.classList.toggle("on", e.dataset.p === p));
+});
 $("url").addEventListener("keydown", e => e.key === "Enter" && $("fetch").click());
 $("paste").onclick = async () => {
   try { $("url").value = await navigator.clipboard.readText(); $("url").dispatchEvent(new Event("input")); $("fetch").click(); }
   catch { say("Clipboard is blocked. Paste the link manually."); }
 };
-
-// Recent list
-const HK = "clipgrab_recent";
-const loadH = () => { try { return JSON.parse(localStorage.getItem(HK)) || []; } catch { return []; } };
-function saveH(e) { try { localStorage.setItem(HK, JSON.stringify([e, ...loadH().filter(x => x.url !== e.url)].slice(0,6))); } catch {} renderH(); }
-function renderH() {
-  const l = loadH(); $("recent").hidden = !l.length; $("rlist").innerHTML = "";
-  l.forEach(e => {
-    const b = document.createElement("button"); b.className = "ri"; b.innerHTML = "<img referrerpolicy='no-referrer' alt=''><span></span>";
-    b.firstChild.src = e.thumb || ""; b.lastChild.textContent = e.title;
-    b.onclick = () => { $("url").value = e.url; $("url").dispatchEvent(new Event("input")); $("fetch").click(); window.scrollTo({top:0,behavior:"smooth"}); };
-    $("rlist").appendChild(b);
-  });
-}
-
 $("fetch").onclick = async () => {
-  const url = $("url").value.trim();
+  const url = $("url").value.trim(); say("");
   if (!url) return say("Paste a link first.");
-  say(""); $("card").classList.remove("on"); $("sk").classList.add("on");
-  $("fetch").disabled = true; $("fetch").textContent = "Fetching…";
+  if (plat(url) === "youtube") { $("yurl").value = url; $("yurl").dispatchEvent(new Event("input")); location.replace("#youtube"); return $("yfetch").click(); }
+  $("card").classList.remove("on"); $("sk").classList.add("on"); $("fetch").disabled = true;
   try {
     const r = await fetch(API + "/api/info", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({url})});
     const d = await r.json();
-    if (!r.ok) throw new Error(d.error);
-    cur = {url, title:d.title, thumb:d.thumbnail};
-    $("thumb").src = d.thumbnail || ""; $("title").textContent = d.title;
-    $("meta").textContent = d.author || ""; $("dur").textContent = mmss(d.duration); $("dur").hidden = !d.duration;
-    const sz = n => n ? " (" + (n/1048576 >= 1 ? (n/1048576).toFixed(1) + " MB" : Math.round(n/1024) + " KB") + ")" : "";
-    const qs = d.qualities || [];
-    const opts = [["best", "Best" + (qs[0] ? sz(qs[0].size) : "")], ...qs.map(q => [String(q.h), q.h + "p" + sz(q.size)]), ["audio", "Audio MP3"]];
-    quality = "best"; $("chips").innerHTML = "";
-    opts.forEach(([v,l]) => {
-      const b = document.createElement("button"); b.className = "chip"; b.textContent = l; b.setAttribute("aria-pressed", v === "best");
-      b.onclick = () => { quality = v; [...$("chips").children].forEach(c => c.setAttribute("aria-pressed", c === b)); };
-      $("chips").appendChild(b);
-    });
-    $("card").classList.add("on");
-    $("card").scrollIntoView({behavior:"smooth", block:"start"});
-  } catch (e) { say(e.message || "Something went wrong. Check your connection."); }
-  $("sk").classList.remove("on"); $("fetch").disabled = false; $("fetch").textContent = "Fetch video";
+    if (!r.ok) throw new Error(d.error || "Couldn’t read this link.");
+    showCard(d, url);
+  } catch (e) { say(e.message || "Something went wrong. Try again."); }
+  $("sk").classList.remove("on"); $("fetch").disabled = false;
 };
+function showCard(d, url) {
+  const p = plat(url);
+  cur = {...d, url, platform: p}; qs = d.qualities || [];
+  $("thumb").src = d.thumbnail || ""; $("tbg").src = d.thumbnail || "";
+  $("tplat").innerHTML = p ? logo(p) + PNAME[p] : "";
+  $("tdur").textContent = mmss(d.duration); $("tdur").hidden = !d.duration;
+  $("ctitle").textContent = d.title;
+  $("cauth").innerHTML = (p ? logo(p) : "") + `<span>${esc(d.author || PNAME[p] || "")}</span>`;
+  const bestSub = qs[0] ? resLabel(qs[0].h) + (qs[0].size ? " · ~" + fmtB(qs[0].size) : "") : "Highest available";
+  const chips = [{v:"best", kind:"video", label:"Best", sub:bestSub, cls:qs[0] && qs[0].h >= 2160 ? "k4" : ""}];
+  qs.forEach(q => chips.push({v:String(q.sel), kind:"video", label:resLabel(q.h), sub:q.size ? "~" + fmtB(q.size) : "", cls:q.h >= 2160 ? "k4" : q.h >= 1440 ? "k2" : ""}));
+  chips.push({v:"audio", kind:"audio", label:"MP3", sub:"Audio only", cls:"wide"});
+  $("qs").innerHTML = chips.map((c, i) => `<button type="button" class="q ${c.cls}${i === 0 ? " on" : ""} ${c.v === "audio" ? "wide" : ""}" data-i="${i}"><b>${esc(c.label)}</b><small>${esc(c.sub || " ")}</small></button>`).join("");
+  pick = chips[0];
+  $("qs").onclick = e => {
+    const b = e.target.closest(".q"); if (!b) return;
+    $("qs").querySelectorAll(".q").forEach(x => x.classList.remove("on")); b.classList.add("on");
+    pick = chips[+b.dataset.i]; dlLabel();
+  };
+  dlLabel(); $("card").classList.add("on");
+  setTimeout(() => $("card").scrollIntoView({behavior:"smooth", block:"start"}), 60);
+}
+function dlLabel() {
+  $("dltxt").textContent = pick.kind === "audio" ? "Download MP3" : "Download · " + (pick.v === "best" ? (qs[0] ? resLabel(qs[0].h) + " (Best)" : "Best") : pick.label);
+}
+const newId = () => "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+$("dl").onclick = () => {
+  if (!cur) return;
+  const it = {id:newId(), url:cur.url, kind:pick.kind, q: pick.kind === "audio" ? "best" : pick.v,
+    qlabel: pick.kind === "audio" ? "MP3" : pick.v === "best" ? (qs[0] ? resLabel(qs[0].h) : "Best") : pick.label,
+    title:cur.title, author:cur.author, thumb:cur.thumbnail, platform:cur.platform, t:Date.now()};
+  addItem(it);
+};
+$("cover").onclick = () => {
+  if (!cur) return;
+  addItem({id:newId(), url:cur.url, kind:"image", q:"", qlabel:"Cover", title:"Cover · " + cur.title, thumb:cur.thumbnail, platform:cur.platform, t:Date.now()});
+};
+function addItem(it) { items.unshift(it); persist(); updateBadge(); fly(it); run(it); }
 
-// ---- Download sheet (progress, speed, in-app save) ----
-const fmtB = n => !n ? "" : n >= 1048576 ? (n/1048576).toFixed(1) + " MB" : Math.round(n/1024) + " KB";
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-let token = 0, dm = -1;
-function ui(o) {
-  if (o.stage != null) $("sstage").textContent = o.stage;
-  $("sbar").style.width = (o.pct || 0) + "%";
-  $("strack").classList.toggle("ind", !!o.ind);
-  $("spct").textContent = o.ind ? "" : (o.pct || 0) + "%";
-  $("sspd").textContent = o.spd ? fmtB(o.spd) + "/s" : "";
-  $("ssz").textContent = o.sz || "";
+/* ---------- fly-in popup ---------- */
+let ft;
+function fly(it) {
+  const f = $("flyer"), m = $("menuBtn");
+  clearTimeout(ft); f.className = "flyer"; f.style.transform = "";
+  f.innerHTML = `<img alt="" referrerpolicy="no-referrer" src="${esc(it.thumb || "")}"><div><b>Added to Downloads</b><span>${esc(it.title)}</span></div>`;
+  void f.offsetWidth; f.classList.add("in");
+  f.onclick = () => { clearTimeout(ft); f.className = "flyer"; f.style.transform = ""; nav("downloads"); };
+  ft = setTimeout(() => {
+    const b = m.getBoundingClientRect(), r = f.getBoundingClientRect();
+    f.style.transform = `translate(${b.left + b.width/2 - (r.left + r.width/2)}px, ${b.top + b.height/2 - (r.top + r.height/2)}px) scale(.07)`;
+    f.classList.add("out");
+    setTimeout(() => { f.className = "flyer"; f.style.transform = ""; m.classList.add("pulse"); setTimeout(() => m.classList.remove("pulse"), 800); }, 700);
+  }, 1500);
 }
-function openSheet(title, thumb) {
-  $("stitle").textContent = title; $("sthumb").src = thumb || ""; $("sthumb").style.display = thumb ? "" : "none";
-  $("sopen").hidden = true; $("sopen").textContent = "Open"; $("sagain").hidden = true; $("scancel").textContent = "Cancel"; ui({stage:"", ind:true});
-  $("sbg").classList.add("on"); $("sheet").classList.add("on");
+
+/* ---------- downloads engine (many at once) ---------- */
+const DK = "clipgrab_dl2", H = {"Content-Type":"application/json"};
+function loadItems() {
+  try {
+    const l = JSON.parse(localStorage.getItem(DK));
+    if (Array.isArray(l)) return l.map(x => x.state === "prep" ? {...x, state:"err", stage:"Interrupted. Tap retry."} : x);
+  } catch {}
+  try {
+    return (JSON.parse(localStorage.getItem("clipgrab_files")) || []).map(e => ({id:"m" + e.id, state:"done", kind:e.kind || "video", title:e.title || e.name, thumb:e.thumb, name:e.name, mime:e.mime, size:e.size, dm:e.id, t:e.t, tdone:e.t, platform:"", qlabel:""}));
+  } catch { return []; }
 }
-function closeSheet() { $("sbg").classList.remove("on"); $("sheet").classList.remove("on"); }
-$("scancel").onclick = () => { token++; if (window.ClipNative && dm > 0 && $("scancel").textContent === "Cancel") try { ClipNative.cancel(dm); } catch {} closeSheet(); };
-const fail = m => { ui({stage:m, pct:0}); $("scancel").textContent = "Close"; };
-function showOpen(mime, label) {
-  $("sopen").textContent = label || "Open"; $("sopen").hidden = false;
-  $("sopen").onclick = () => { try { ClipNative.open(dm, mime) || toast("Open it from your notifications"); } catch {} };
+let items = loadItems();
+const persist = () => { try { localStorage.setItem(DK, JSON.stringify(items.slice(0, 100))); } catch {} };
+const active = () => items.filter(i => i.state === "prep" || i.state === "dl");
+function refresh() { persist(); updateBadge(); if (!$("p-downloads").hidden) renderDownloads(); }
+function statusText(it) {
+  if (it.state === "err") return it.stage || "Failed";
+  if (it.state === "prep") return (it.stage || "Starting…") + (it.pct ? " · " + it.pct + "%" : "") + (it.eta > 0 ? " · " + (it.eta > 59 ? Math.ceil(it.eta / 60) + " min" : it.eta + "s") + " left" : "");
+  const left = it.spd > 0 && it.to > it.so ? Math.ceil((it.to - it.so) / it.spd) : 0;
+  return "Saving to your phone · " + (it.pct || 0) + "%" + (it.spd > 0 ? " · " + fmtB(it.spd) + "/s" : "") + (left ? " · " + (left > 59 ? Math.ceil(left/60) + " min" : left + "s") + " left" : "");
 }
-function finish(mime, stage, label) {
-  ui({stage: stage || "Saved to your Downloads", pct:100}); $("scancel").textContent = "Done";
-  if (mime) showOpen(mime, label);
+function paint(it) {
+  const r = document.querySelector(`[data-i="${it.id}"]`); if (!r) return;
+  const b = r.querySelector(".pb i"); if (b) b.style.width = (it.pct || 0) + "%";
+  const s = r.querySelector(".ps"); if (s) s.textContent = statusText(it);
 }
-async function saveFile(url, name, mime, meta) {
-  const my = ++token; dm = -1;
-  if (!window.ClipNative) { closeSheet(); return go(url); }   // browser or older app: normal download
-  ui({stage:"Saving to your phone", ind:true});
-  dm = ClipNative.download(url, name);
-  if (!(dm > 0)) return fail("Couldn’t start the download.");
-  let last = 0, lt = Date.now();
-  while (my === token) {
-    await sleep(500);
-    const [s, so, to] = String(ClipNative.status(dm)).split(",").map(Number);
-    const now = Date.now(), spd = (so - last) * 1000 / (now - lt); last = so; lt = now;
-    if (s === 16) return fail("Download failed. Try again.");
-    ui({stage:"Saving to your phone", pct: to > 0 ? Math.round(so*100/to) : 0, spd: s === 2 ? spd : 0, sz: to > 0 ? fmtB(so) + " of " + fmtB(to) : "", ind: !(to > 0)});
-    if (s === 8) {
-      if (meta && meta.apk) { saveApk({n: pendingN, id: dm}); return finish(mime, "Downloaded. Tap Install. If Android says “App not installed”, uninstall the old ClipGrab once, then install again.", "Install"); }
-      if (meta) addF({id: dm, name, mime, kind: meta.kind, title: meta.title, thumb: meta.thumb, size: to || so, t: Date.now()});
-      return finish(mime);
+const fOpen = it => it.uri ? yt("openUri", it.uri, it.mime) : nat("open", it.dm, it.mime);
+const fShare = it => it.uri ? yt("shareUri", it.uri, it.mime) : nat("share", it.dm, it.mime);
+const fExists = it => it.external ? true : it.uri ? yt("existsUri", it.uri) : nat("exists", it.dm);
+const fDelete = it => it.uri ? yt("deleteUri", it.uri) : nat("cancel", it.dm);
+const fileTag = it => `${it.qlabel}${it.clip ? ", clip" : ""}`;
+
+async function run(it) {
+  const dead = () => !items.includes(it);
+  const fail = m => { if (dead()) return; it.state = "err"; it.stage = m; refresh(); };
+  try {
+    it.state = "prep"; it.stage = "Starting…"; it.pct = 0; it.spd = 0; it.eta = 0; refresh();
+    const engines = it.engines && it.engines.length ? it.engines : ["server"];
+    let lastErr = "";
+    for (let i = 0; i < engines.length; i++) {
+      if (i > 0) { it.stage = engines[i] === "server" ? "Trying the server…" : "Trying your phone…"; it.pct = 0; paint(it); }
+      const r = engines[i] === "phone" ? await phoneRun(it) : await serverRun(it);
+      if (dead()) return;
+      if (r.ok) return;
+      lastErr = r.err || lastErr;
     }
+    fail(lastErr || "Download failed. Tap retry.");
+  } catch { fail("Network problem. Tap retry."); }
+}
+async function phoneRun(it) {
+  if (!phoneOK()) return {ok:false, err:"The on-phone engine isn’t in this app version."};
+  const dead = () => !items.includes(it);
+  const opts = {q:it.q, kind:it.kind === "audio" ? "audio" : "video", start:it.start || 0, end:it.end || 0, precise:it.precise !== false,
+    name: it.title + (it.kind === "video" ? ` (${fileTag(it)})` : it.clip ? " (clip)" : "")};
+  const id = ClipYT.start(it.url, JSON.stringify(opts)); it.yt = id; it.via = "phone"; it.stage = "Starting on your phone…"; paint(it);
+  for (;;) {
+    await sleep(600);
+    if (dead()) { yt("cancel", id); return {ok:true}; }
+    let j; try { j = JSON.parse(ClipYT.poll(id)); } catch { continue; }
+    if (j.state === "error") return {ok:false, err:ytFriendly(j.error)};
+    if (j.state === "done") {
+      Object.assign(it, {uri:j.uri, name:j.name, size:j.size, mime:j.mime, state:"done", pct:100, tdone:Date.now(), eta:0, yt:null});
+      refresh(); toast("Saved · " + it.title.slice(0, 40), () => nav("downloads")); return {ok:true};
+    }
+    it.stage = j.stage || "Working…"; it.pct = Math.floor(j.pct || 0); it.eta = j.eta || 0; paint(it);
   }
 }
-$("dl").onclick = async () => {
-  const url = $("url").value.trim(), kind = quality === "audio" ? "audio" : "video";
-  if (cur) saveH(cur);
-  openSheet(cur ? cur.title : "Your video", cur && cur.thumb);
-  const my = ++token;
-  ui({stage:"Preparing on our server", ind:true});
-  try {
-    const r = await fetch(API + "/api/prepare", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({url, q:quality, kind})});
-    const d = await r.json(); if (!r.ok) throw new Error(d.error);
-    while (my === token) {
-      await sleep(700);
-      const j = await (await fetch(API + "/api/job/" + d.id)).json();
-      if (j.state === "error" || j.error) throw new Error("Couldn’t fetch it. Try another quality.");
-      if (j.state === "ready") return saveFile(abs("/api/file/" + d.id), j.name, kind === "audio" ? "audio/mpeg" : "video/mp4", {kind, title: cur && cur.title, thumb: cur && cur.thumb});
-      ui({stage: j.stage === "processing" ? "Finishing up" : "Fetching from " + (plat(url) || "the source"), pct:j.pct, spd:j.speed, ind:!j.pct});
+const ytFriendly = m => /sign in|not a bot|confirm you/i.test(m || "") ? "YouTube asked for a bot check on this connection." : /private|unavailable/i.test(m || "") ? "This video is private or unavailable." : "The phone engine failed. Try Updates → Update YouTube engine.";
+async function serverRun(it) {
+  const dead = () => !items.includes(it);
+  let file;
+  it.via = "server";
+  if (it.kind === "image") {
+    file = abs("/api/image?url=" + encodeURIComponent(it.url)); it.name = "ClipGrab-cover-" + Date.now() + ".jpg";
+  } else {
+    let d, tries = 0;
+    for (;;) {
+      const r = await fetch(API + "/api/prepare", {method:"POST", headers:H, body:JSON.stringify({url:it.url, q:it.q, kind:it.kind === "audio" ? "audio" : "video", start:it.start || 0, end:it.end || 0, precise:it.precise !== false})});
+      d = await r.json().catch(() => ({}));
+      if (r.status === 429 && tries++ < 60) { it.stage = "Waiting for a free slot…"; paint(it); await sleep(3000); if (dead()) return {ok:true}; continue; }
+      if (!r.ok) return {ok:false, err:d.error || "Couldn’t start. Tap retry."};
+      break;
     }
-  } catch (e) { fail(e.message || "Something went wrong."); }
+    it.job = d.id;
+    for (;;) {
+      await sleep(700); if (dead()) return {ok:true};
+      const r = await fetch(API + "/api/job/" + it.job), j = await r.json().catch(() => ({}));
+      if (!r.ok) return {ok:false, err:"The server forgot this job. Tap retry."};
+      if (j.state === "error") return {ok:false, err:j.err || "Couldn’t fetch this one. Try another quality."};
+      if (j.state === "ready") { it.name = j.name; it.size = j.size; break; }
+      it.stage = j.stage === "processing" ? (it.clip ? "Merging & cutting…" : "Merging video & audio…") : "Fetching in best quality…"; it.pct = j.pct || 0; it.spd = j.speed || 0; paint(it);
+    }
+    file = abs("/api/file/" + it.job);
+    if (it.kind === "video") it.name = it.name.replace(/(\.[^.]+)$/, ` (${fileTag(it)})$1`);
+  }
+  it.mime = it.kind === "audio" ? "audio/mpeg" : it.kind === "image" ? "image/jpeg" : "video/mp4";
+  if (!window.ClipNative) {
+    const a = document.createElement("a"); a.href = file; a.download = it.name; document.body.appendChild(a); a.click(); a.remove();
+    it.state = "done"; it.external = true; it.pct = 100; it.tdone = Date.now(); refresh(); toast("Sent to your browser downloads"); return {ok:true};
+  }
+  const id = ClipNative.download(file, it.name);
+  if (!(id > 0)) return {ok:false, err:"Android blocked the download. Tap retry."};
+  it.dm = id; it.state = "dl"; it.stage = ""; it.pct = 0; it.spd = 0; refresh();
+  watch(it);
+  return {ok:true};
+}
+async function watch(it) {
+  const dead = () => !items.includes(it); let last = 0, lt = Date.now(), zero = 0;
+  for (;;) {
+    await sleep(500); if (dead()) return;
+    const [s, so, to] = String(nat("status", it.dm) || "0,0,0").split(",").map(Number);
+    if (s === 8) { it.state = "done"; it.pct = 100; it.size = to || so || it.size; it.tdone = Date.now(); it.spd = 0; refresh(); toast("Saved · " + it.title.slice(0, 40), () => nav("downloads")); return; }
+    if (s === 16 || (s === 0 && ++zero > 20)) { it.state = "err"; it.stage = "Download failed. Tap retry."; refresh(); return; }
+    const now = Date.now(); if (so > last) { it.spd = (so - last) * 1000 / (now - lt); last = so; lt = now; }
+    it.so = so; it.to = to; it.pct = to > 0 ? Math.floor(so * 100 / to) : 0; paint(it);
+  }
+}
+items.filter(i => i.state === "dl" && i.dm).forEach(watch);   // resume after app restart
+items.forEach(i => { if (i.state === "dl" && !i.dm) i.state = "err"; });
+
+/* ---------- downloads page ---------- */
+let flt = "all";
+function renderDownloads() {
+  const list = items.filter(i => flt === "all" || i.kind === flt), l = $("dlist");
+  const done = items.filter(i => i.state === "done"), a = active().length, total = done.reduce((s, i) => s + (i.size || 0), 0);
+  $("dsum").innerHTML = items.length ? `<b>${items.length} ${items.length === 1 ? "file" : "files"}${total ? " · " + fmtB(total) : ""}</b><span>${a ? a + " downloading" : "All done"}</span>` : "";
+  $("dfil").style.display = items.length ? "" : "none"; $("drow").style.display = items.length ? "" : "none";
+  $("dempty").classList.toggle("on", !list.length);
+  $("dempty").querySelector("b").textContent = items.length ? "Nothing here" : "No downloads yet";
+  $("dfolder").style.display = window.ClipNative ? "" : "none";
+  l.innerHTML = ""; list.forEach(it => l.appendChild(row(it)));
+}
+function row(it) {
+  const d = document.createElement("article"), act = it.state === "prep" || it.state === "dl";
+  const gone = it.state === "done" && fExists(it) === false;
+  d.className = "di " + (it.state === "err" || gone ? "err" : ""); d.dataset.i = it.id;
+  const kic = it.kind === "audio" ? "music" : it.kind === "image" ? "image" : "play";
+  const q = (it.qlabel ? `<span class="tag ${/^(4K|8K)$/.test(it.qlabel) ? "k4" : ""}">${esc(it.qlabel)}</span>` : "") + (it.clip ? `<span class="tag clip">${ic("scissors", "width:11px;height:11px;vertical-align:-1px;margin-right:3px")}${esc(it.clip)}</span>` : "");
+  const bits = [it.platform ? `${logo(it.platform)}<span>${PNAME[it.platform]}</span>` : "", q, it.size ? `<span>${fmtB(it.size)}</span>` : ""].filter(Boolean).join("<i>·</i>");
+  let h = `<div class="dtop"><div class="dth"><img alt="" referrerpolicy="no-referrer" src="${esc(it.thumb || "")}"><span class="kd">${ic(kic)}</span></div>
+    <div class="dmeta"><p class="dt">${esc(it.title || it.name)}</p><div class="dd">${bits}</div>
+    <div class="dw">${ic("clock")}${esc(fmtWhen(it.tdone || it.t))}${it.via ? " · " + (it.via === "phone" ? "on phone" : "server") : ""}</div></div></div>`;
+  if (act) h += `<div class="pb"><i style="width:${it.pct || 0}%"></i></div><p class="ps">${esc(statusText(it))}</p><div class="da"><button type="button" data-a="cancel">${ic("x")}Cancel</button></div>`;
+  else if (it.state === "err") h += `<p class="ps">${esc(it.stage)}</p><div class="da"><button type="button" class="go" data-a="retry">${ic("refresh")}Retry</button><button type="button" class="del" data-a="remove" aria-label="Remove">${ic("trash")}</button></div>`;
+  else if (gone) h += `<p class="gone">This file was removed from your phone.</p><div class="da"><button type="button" data-a="remove">${ic("trash")}Remove from list</button></div>`;
+  else if (it.external) h += `<p class="ps">Sent to your browser’s downloads.</p><div class="da"><button type="button" data-a="remove">${ic("trash")}Remove from list</button></div>`;
+  else h += `<div class="da"><button type="button" class="go" data-a="open">${ic("open")}Open</button><button type="button" data-a="share">${ic("share")}Share</button><button type="button" class="del" data-a="del" aria-label="Delete">${ic("trash")}</button></div>`;
+  d.innerHTML = h; return d;
+}
+$("dlist").onclick = e => {
+  const b = e.target.closest("button[data-a]"); if (!b) return;
+  const it = items.find(i => i.id === b.closest("[data-i]").dataset.i); if (!it) return;
+  const rm = () => { items = items.filter(i => i !== it); refresh(); };
+  switch (b.dataset.a) {
+    case "open": if (fOpen(it) !== true) toast("Couldn’t open it. Try Open folder."); break;
+    case "share": if (fShare(it) !== true) toast("Couldn’t share this file."); break;
+    case "del": if (confirm("Delete this file from your phone?")) { fDelete(it); rm(); toast("File deleted"); } break;
+    case "cancel": if (it.dm) nat("cancel", it.dm); if (it.yt) yt("cancel", it.yt); rm(); toast("Cancelled"); break;
+    case "retry": run(it); break;
+    case "remove": rm(); break;
+  }
 };
-$("img").onclick = () => { openSheet("Cover image", cur && cur.thumb); saveFile(abs("/api/image?url=" + encodeURIComponent($("url").value.trim())), "ClipGrab-cover-" + Date.now() + ".jpg", "image/jpeg", {kind:"image", title: "Cover: " + (cur ? cur.title : "image"), thumb: cur && cur.thumb}); };
+$("dfil").onclick = e => {
+  const b = e.target.closest("button[data-f]"); if (!b) return;
+  flt = b.dataset.f; $("dfil").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); renderDownloads();
+};
+$("dfolder").onclick = () => { if (nat("folder") === undefined) toast("Open the Files app, then Downloads."); };
+$("dclear").onclick = () => {
+  if (!confirm("Clear the list? Your saved files stay on your phone.")) return;
+  items = items.filter(i => i.state === "prep" || i.state === "dl"); refresh();
+};
+document.addEventListener("visibilitychange", () => { if (!document.hidden && !$("p-downloads").hidden) renderDownloads(); });
+
+/* ---------- YouTube page: full video, MP3, or a cut ---------- */
+const EK = "clipgrab_eng";
+let eng = (() => { try { return localStorage.getItem(EK) || "auto"; } catch { return "auto"; } })();
+const ENG_NOTE = {auto:"Tries your phone first, then the server if needed.", phone:"Runs on your phone’s own connection. The first time takes a few seconds to warm up.", server:"Runs on our server. YouTube sometimes blocks servers."};
+function engInit() {
+  if (!phoneOK()) { eng = "server"; $("yeng").hidden = true; $("yengnote").textContent = "Using the server engine."; return; }
+  if (!ENG_NOTE[eng]) eng = "auto";
+  $("yeng").hidden = false;
+  $("yeng").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.e === eng));
+  $("yengnote").textContent = ENG_NOTE[eng];
+}
+$("yeng").onclick = e => {
+  const b = e.target.closest("button[data-e]"); if (!b) return;
+  eng = b.dataset.e; try { localStorage.setItem(EK, eng); } catch {} engInit();
+};
+const ymsg = t => $("ymsg").textContent = t || "";
+const ystat = t => $("ystat").textContent = t || "";
+$("yurl").addEventListener("input", () => { const p = plat($("yurl").value); $("ylead").innerHTML = p === "youtube" ? logo(p) : ic("link"); });
+$("yurl").addEventListener("keydown", e => e.key === "Enter" && $("yfetch").click());
+$("ypaste").onclick = async () => {
+  try { $("yurl").value = await navigator.clipboard.readText(); $("yurl").dispatchEvent(new Event("input")); $("yfetch").click(); }
+  catch { ymsg("Clipboard is blocked. Paste the link manually."); }
+};
+
+function ytQualities(d) {   // same rules as the server: every real resolution from 360p up
+  const fs = d.formats || [], dur = d.duration || 0;
+  const est = f => { let n = f.filesize || f.filesize_approx; if (!n && f.tbr && dur) n = f.tbr * 1000 / 8 * dur; return n ? Math.round(n) : 0; };
+  const noV = f => !f.vcodec || f.vcodec === "none", noA = f => !f.acodec || f.acodec === "none";
+  const aud = fs.filter(f => noV(f) && !noA(f)).sort((a, b) => (b.tbr || 0) - (a.tbr || 0))[0];
+  const vids = fs.filter(f => f.height && !noV(f));
+  const out = [], seen = new Set();
+  [...new Set(vids.map(f => f.height))].sort((a, b) => b - a).forEach(sel => {
+    const b = vids.filter(f => f.height === sel).sort((x, y) => (y.tbr || 0) - (x.tbr || 0))[0];
+    const label = b.width ? Math.min(sel, b.width) : sel;
+    if (label < 360 || seen.has(label)) return;
+    seen.add(label);
+    let size = est(b); if (size && noA(b) && aud) size += est(aud);
+    out.push({h:label, sel, size});
+  });
+  return out.slice(0, 10);
+}
+async function phoneInfo(url) {
+  const id = ClipYT.infoStart(url);
+  for (;;) {
+    await sleep(500);
+    const j = JSON.parse(ClipYT.poll(id));
+    if (j.state === "error") throw new Error(j.error || "The phone engine failed.");
+    if (j.state === "done") {
+      const d = JSON.parse(j.result);
+      return {title:d.title, author:d.uploader, thumbnail:d.thumbnail, duration:d.duration || 0, qualities:ytQualities(d), chapters:d.chapters || [], via:"phone"};
+    }
+    ystat(j.stage || "Working…");
+  }
+}
+async function serverInfo(url) {
+  const r = await fetch(API + "/api/info", {method:"POST", headers:H, body:JSON.stringify({url})});
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || "Couldn’t read this link.");
+  return {...d, via:"server"};
+}
+async function ytInfo(url) {
+  const order = eng === "phone" ? ["phone"] : eng === "server" || !phoneOK() ? ["server"] : ["phone", "server"];
+  const errs = [];
+  for (const e of order) {
+    try { ystat(e === "phone" ? "Reading the video on your phone…" : "Reading the video on the server…"); return await (e === "phone" ? phoneInfo(url) : serverInfo(url)); }
+    catch (err) { errs.push({e, m: err.message}); }
+  }
+  const last = errs[errs.length - 1];
+  throw new Error(last.e === "phone" ? ytFriendly(last.m) : last.m);
+}
+
+let ycur = null, yqs = [], ypick = null, yD = 0, tS = 0, tE = 0;
+$("yfetch").onclick = async () => {
+  const url = $("yurl").value.trim(); ymsg(""); ystat("");
+  if (!url) return ymsg("Paste a YouTube link first.");
+  if (plat(url) !== "youtube") return ymsg("That doesn’t look like a YouTube link.");
+  $("ycard").classList.remove("on"); $("ysk").classList.add("on"); $("yfetch").disabled = true;
+  try { showY(await ytInfo(url), url); }
+  catch (e) { ymsg(e.message || "Couldn’t read this link."); }
+  ystat(""); $("ysk").classList.remove("on"); $("yfetch").disabled = false;
+};
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const fmtT = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return h ? `${h}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}` : `${m}:${String(x).padStart(2, "0")}`; };
+const parseT = t => { t = String(t).trim(); if (!t) return NaN; const p = t.split(":").map(Number); return p.length > 3 || p.some(isNaN) ? NaN : p.reduce((a, v) => a * 60 + v, 0); };
+const cutOn = () => $("ycut").checked && yD >= 2 && !(tS <= 0 && tE >= yD);
+function sizeOf(pickv) { const q = pickv.v === "best" ? yqs[0] : yqs.find(x => String(x.sel) === pickv.v); return q ? q.size : 0; }
+function setRange(s, e) {
+  s = clamp(Math.round(s), 0, yD - 1); e = clamp(Math.round(e), s + 1, yD); tS = s; tE = e;
+  $("rs").value = s; $("re").value = e; $("ys").value = fmtT(s); $("ye").value = fmtT(e);
+  const f = $("rfill"); f.style.left = (s / yD * 100) + "%"; f.style.width = ((e - s) / yD * 100) + "%";
+  const sz = ypick && ypick.kind === "video" ? sizeOf(ypick) : 0;
+  $("yclip").textContent = "Clip length " + fmtT(e - s) + (sz ? " · about " + fmtB(sz * (e - s) / yD) : "");
+  ydlLabel();
+}
+function showY(d, url) {
+  ycur = {...d, url, platform:"youtube"}; yqs = d.qualities || []; yD = Math.floor(d.duration || 0);
+  $("ythumb").src = d.thumbnail || ""; $("ytbg").src = d.thumbnail || "";
+  $("ytdur").textContent = mmss(d.duration); $("ytdur").hidden = !d.duration;
+  $("yctitle").textContent = d.title;
+  $("ycauth").innerHTML = logo("youtube") + `<span>${esc(d.author || "YouTube")}</span>`;
+  const bestSub = yqs[0] ? resLabel(yqs[0].h) + (yqs[0].size ? " · ~" + fmtB(yqs[0].size) : "") : "Highest available";
+  const chips = [{v:"best", kind:"video", label:"Best", sub:bestSub, cls:yqs[0] && yqs[0].h >= 2160 ? "k4" : ""}];
+  yqs.forEach(q => chips.push({v:String(q.sel), kind:"video", label:resLabel(q.h), sub:q.size ? "~" + fmtB(q.size) : "", cls:q.h >= 2160 ? "k4" : q.h >= 1440 ? "k2" : ""}));
+  chips.push({v:"audio", kind:"audio", label:"MP3", sub:"Audio only", cls:"wide"});
+  $("yqs").innerHTML = chips.map((c, i) => `<button type="button" class="q ${c.cls}${i === 0 ? " on" : ""}" data-i="${i}"><b>${esc(c.label)}</b><small>${esc(c.sub || " ")}</small></button>`).join("");
+  ypick = chips[0];
+  $("yqs").onclick = e => {
+    const b = e.target.closest(".q"); if (!b) return;
+    $("yqs").querySelectorAll(".q").forEach(x => x.classList.remove("on")); b.classList.add("on");
+    ypick = chips[+b.dataset.i]; if (yD >= 2) setRange(tS, tE); else ydlLabel();
+  };
+  // trim section
+  $("ytrim").hidden = yD < 2; $("ycut").checked = false; $("ycutbox").hidden = true;
+  if (yD >= 2) {
+    ["rs", "re"].forEach(id => { $(id).max = yD; });
+    setRange(0, yD);
+    $("ychap").innerHTML = ""; $("ychap").hidden = !(d.chapters && d.chapters.length > 1);
+    (d.chapters || []).slice(0, 14).forEach(c => {
+      if (!(c.end > c.start)) return;
+      const b = document.createElement("button"); b.type = "button"; b.textContent = `${c.title || "Chapter"} · ${fmtT(c.start)}`;
+      b.onclick = () => { $("ycut").checked = true; $("ycutbox").hidden = false; setRange(c.start, c.end); };
+      $("ychap").appendChild(b);
+    });
+  }
+  ydlLabel(); $("ycard").classList.add("on");
+  setTimeout(() => $("ycard").scrollIntoView({behavior:"smooth", block:"start"}), 60);
+}
+function ydlLabel() {
+  if (!ypick) return;
+  const cut = cutOn() ? ` · ${fmtT(tS)}–${fmtT(tE)}` : "";
+  $("ydltxt").textContent = ypick.kind === "audio" ? "Download MP3" + cut : "Download · " + (ypick.v === "best" ? (yqs[0] ? resLabel(yqs[0].h) + " (Best)" : "Best") : ypick.label) + cut;
+}
+$("ycut").onchange = () => { $("ycutbox").hidden = !$("ycut").checked; ydlLabel(); };
+$("rs").oninput = () => setRange(+$("rs").value, Math.max(tE, +$("rs").value + 1));
+$("re").oninput = () => setRange(Math.min(tS, +$("re").value - 1), +$("re").value);
+$("ys").onchange = () => { const v = parseT($("ys").value); isNaN(v) ? setRange(tS, tE) : setRange(v, Math.max(tE, v + 1)); };
+$("ye").onchange = () => { const v = parseT($("ye").value); isNaN(v) ? setRange(tS, tE) : setRange(Math.min(tS, v - 1), v); };
+$("ycutbox").onclick = e => {
+  const b = e.target.closest("button[data-n]"); if (!b) return;
+  const [w, d] = [b.dataset.n[0], +b.dataset.n.slice(1)];
+  w === "s" ? setRange(tS + d, Math.max(tE, tS + d + 1)) : setRange(Math.min(tS, tE + d - 1), tE + d);
+};
+function ytEngines() {
+  if (eng === "server" || !phoneOK()) return ["server"];
+  if (eng === "phone") return ["phone"];
+  return ycur && ycur.via === "phone" ? ["phone", "server"] : ["server", "phone"];
+}
+$("ydl").onclick = () => {
+  if (!ycur) return;
+  const cut = cutOn();
+  addItem({id:newId(), url:ycur.url, kind:ypick.kind, q:ypick.kind === "audio" ? "best" : ypick.v,
+    qlabel: ypick.kind === "audio" ? "MP3" : ypick.v === "best" ? (yqs[0] ? resLabel(yqs[0].h) : "Best") : ypick.label,
+    title:ycur.title, author:ycur.author, thumb:ycur.thumbnail, platform:"youtube", t:Date.now(), engines:ytEngines(),
+    start:cut ? tS : 0, end:cut ? tE : 0, precise:$("yprec").checked, clip:cut ? `${fmtT(tS)}–${fmtT(tE)}` : ""});
+};
+$("ycover").onclick = () => {
+  if (!ycur) return;
+  addItem({id:newId(), url:ycur.url, kind:"image", q:"", qlabel:"Thumbnail", title:"Thumbnail · " + ycur.title, thumb:ycur.thumbnail, platform:"youtube", t:Date.now(), engines:["server"]});
+};
+engInit();
+
+/* ---------- updates ---------- */
 const APK = "application/vnd.android.package-archive", AK = "clipgrab_apk";
 const loadApk = () => { try { return JSON.parse(localStorage.getItem(AK)); } catch { return null; } };
 const saveApk = o => { try { localStorage.setItem(AK, JSON.stringify(o)); } catch {} };
-function freshApk() { openSheet("ClipGrab update", ""); saveFile(pending, "ClipGrab-v" + pendingN + ".apk", APK, {apk:true}); }
-function dlApk() {
-  const k = loadApk();
-  if (k && k.n === pendingN && nat("exists", k.id) === true) {   // already downloaded: don't download again
-    openSheet("ClipGrab update", ""); dm = k.id; token++;
-    finish(APK, "Update already downloaded. Tap Install. If Android says “App not installed”, uninstall the old ClipGrab once, then install again.", "Install");
-    $("sagain").hidden = false; $("sagain").onclick = freshApk;
-    return;
-  }
-  freshApk();
-}
-
-// ---- Downloads library (history + file access) ----
-const FK = "clipgrab_files";
-const loadF = () => { try { return JSON.parse(localStorage.getItem(FK)) || []; } catch { return []; } };
-const putF = l => { try { localStorage.setItem(FK, JSON.stringify(l.slice(0, 50))); } catch {} };
-const nat = (f, ...a) => { try { return window.ClipNative && typeof ClipNative[f] === "function" ? ClipNative[f](...a) : undefined; } catch { return undefined; } };
-function addF(e) { putF([e, ...loadF().filter(x => x.id !== e.id)]); renderF(); }
-function renderF() {
-  const l = loadF(); $("files").hidden = !(window.ClipNative && l.length); $("flist").innerHTML = "";
-  l.forEach(e => {
-    const gone = nat("exists", e.id) === false;
-    const d = document.createElement("div"); d.className = "fi";
-    const img = document.createElement("img"); img.alt = ""; img.referrerPolicy = "no-referrer"; img.src = e.thumb || "";
-    const t = document.createElement("div"); t.className = "ft";
-    const n = document.createElement("p"); n.className = "fn"; n.textContent = e.title || e.name;
-    const m = document.createElement("small"); m.className = gone ? "gone" : "";
-    m.textContent = gone ? "File was removed from your phone" : [e.kind === "audio" ? "MP3" : e.kind === "image" ? "Image" : "Video", fmtB(e.size), new Date(e.t).toLocaleDateString(undefined, {day:"numeric", month:"short"})].filter(Boolean).join(" · ");
-    t.append(n, m); d.append(img, t);
-    const a = document.createElement("div"); a.className = "fa";
-    const btn = (label, cls, fn) => { const b = document.createElement("button"); b.type = "button"; b.textContent = label; if (cls) b.className = cls; b.onclick = fn; a.appendChild(b); };
-    if (!gone) {
-      btn("Open", "", () => { dm = e.id; if (nat("open", e.id, e.mime) !== true) toast("Couldn’t open it. Try Open folder."); });
-      btn("Share", "", () => { if (nat("share", e.id, e.mime) !== true) toast("Couldn’t share this file."); });
-    }
-    btn(gone ? "Remove" : "Delete", "del", () => {
-      if (!gone && !confirm("Delete this file from your phone?")) return;
-      if (!gone) nat("cancel", e.id);
-      putF(loadF().filter(x => x.id !== e.id)); renderF(); toast(gone ? "Removed from list" : "File deleted");
-    });
-    d.appendChild(a); $("flist").appendChild(d);
-  });
-}
-$("fold").onclick = () => { if (nat("folder") === undefined) toast("Open the Files app, then Downloads."); };
-document.addEventListener("visibilitychange", () => { if (!document.hidden) renderF(); });
-
-// ---- App version and update ----
-let build = 0, pending = "", pendingN = 0;
-const label = () => $("chk").textContent = pending ? "Install update" : native ? "Check for update" : "Get Android app";
+let build = 0, pending = "", pendingN = 0, uAct = () => {}, checked = 0;
 async function latest() {
   const r = await (await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`)).json();
   return { n: parseInt(String(r.tag_name).replace(/\D/g, ""), 10), apk: (r.assets || []).find(a => a.name.endsWith(".apk")) };
 }
+function uSet(stat, btn, act, good) {
+  $("ustat").textContent = stat; $("ustat").className = "ust" + (good ? " good" : "");
+  $("ubtn").textContent = btn; $("ubtn").disabled = false; uAct = act;
+}
 async function check(manual) {
-  if (pending) return dlApk();
-  $("chk").disabled = true; $("chk").textContent = "Checking…";
+  $("ubtn").disabled = true; $("ubtn").textContent = "Checking…"; $("ustat").textContent = ""; $("ustat").className = "ust";
   try {
     const { n, apk } = await latest();
     if (!apk) throw 0;
-    if (!native) openExt(apk.browser_download_url);
-    else if (n > build) {
-      pending = apk.browser_download_url; pendingN = n; $("ver").textContent = "Version " + n + " is available";
-      $("upd").classList.add("on"); $("updBtn").onclick = dlApk;
-      if (manual) toast("New version found");
-    } else if (manual) toast("You’re on the latest version");
-  } catch { if (manual) toast("Couldn’t check for updates. Try again later."); }
-  $("chk").disabled = false; label();
+    checked = Date.now();
+    if (!native) { uSet("Get the Android app", "Download APK", () => openExt(apk.browser_download_url)); return; }
+    if (n > build) {
+      pending = apk.browser_download_url; pendingN = n; $("upd").classList.add("on"); $("updBtn").onclick = () => nav("update"); updateBadge();
+      const k = loadApk();
+      if (k && k.n === n && nat("exists", k.id) === true) return updReady(k.id);
+      uSet("Version " + n + " is ready", "Download update", updDownload, true);
+    } else {
+      pending = ""; $("upd").classList.remove("on"); updateBadge();
+      uSet("You’re on the latest version ✓", "Check again", () => check(true), true);
+    }
+  } catch { uSet("Couldn’t check for updates", "Try again", () => check(true)); }
 }
-$("chk").onclick = () => check(true);
+function updReady(id) {
+  $("ubarw").hidden = true; $("uhint").hidden = false;
+  uSet("Version " + pendingN + " downloaded", "Install", () => { if (nat("open", id, APK) !== true) toast("Open it from your notifications"); }, true);
+  $("uagain").hidden = false; $("uagain").onclick = updDownload;
+}
+async function updDownload() {
+  $("ubtn").disabled = true; $("uagain").hidden = true; $("ubarw").hidden = false; $("ubar").style.width = "0"; $("ustat").className = "ust"; $("ustat").textContent = "Downloading…";
+  const id = nat("download", pending, "ClipGrab-v" + pendingN + ".apk");
+  if (!(id > 0)) return uSet("Android blocked the download", "Try again", updDownload);
+  for (let zero = 0;;) {
+    await sleep(500);
+    const [s, so, to] = String(nat("status", id) || "0,0,0").split(",").map(Number);
+    if (s === 8) { saveApk({n:pendingN, id}); return updReady(id); }
+    if (s === 16 || (s === 0 && ++zero > 20)) { $("ubarw").hidden = true; return uSet("Download failed", "Try again", updDownload); }
+    const p = to > 0 ? Math.floor(so * 100 / to) : 0; $("ubar").style.width = p + "%"; $("ustat").textContent = "Downloading… " + p + "%";
+  }
+}
+$("ubtn").onclick = () => uAct();
+$("uengine").onclick = async () => {
+  const b = $("uengine"); b.disabled = true; b.textContent = "Updating…";
+  try {
+    const id = yt("updateStart");
+    for (;;) {
+      await sleep(800); const j = JSON.parse(yt("poll", id));
+      if (j.state === "done") { toast("YouTube engine updated"); break; }
+      if (j.state === "error") { toast("Couldn’t update the engine"); break; }
+    }
+  } catch { toast("Couldn’t update the engine"); }
+  b.disabled = false; b.textContent = "Update YouTube engine";
+};
+function updEnter() {
+  $("uengine").hidden = $("uenghint").hidden = !phoneOK();
+  $("uver").textContent = native ? (build ? "Installed version " + build : "Installed") : "You’re using the web version";
+  if (!pending || Date.now() - checked > 60000) check(false);
+}
 (async () => {
-  label(); renderH(); renderF();
-  if (!native) { $("ver").textContent = "You’re using the web version"; return; }
-  try { build = parseInt((await Capacitor.Plugins.App.getInfo()).build, 10); $("ver").textContent = "Installed version " + build; } catch { $("ver").textContent = "Installed"; }
-  check(false);
+  route();
+  if (!native) return;
+  try { build = parseInt((await Capacitor.Plugins.App.getInfo()).build, 10); } catch {}
+  updateBadge(); check(false);
 })();
+updateBadge();
 </script>
 </body>
 </html>
