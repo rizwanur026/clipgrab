@@ -51,6 +51,7 @@ jobs:
             public void onCreate(Bundle b) {
               super.onCreate(b);
               getBridge().getWebView().addJavascriptInterface(new Native(), "ClipNative");
+              getBridge().getWebView().addJavascriptInterface(new YtNative(this), "ClipYT"); //YT
             }
 
             class Native {
@@ -134,6 +135,17 @@ jobs:
           sed -i -E "s/versionCode [0-9]+/versionCode ${{ github.run_number }}/; s/versionName \"[^\"]*\"/versionName \"${{ github.run_number }}\"/" android/app/build.gradle
           grep -E "versionCode|versionName" android/app/build.gradle
           grep -q "versionCode ${{ github.run_number }}" android/app/build.gradle || { echo "versionCode patch failed"; exit 1; }
+      - name: Add on-phone YouTube engine (yt-dlp + ffmpeg)
+        run: |
+          cp android-extra/YtNative.java android/app/src/main/java/com/clipgrab/app/YtNative.java
+          # library needs minSdk 24 and native libs extracted to disk
+          sed -i -E 's/minSdkVersion *= *[0-9]+/minSdkVersion = 24/' android/variables.gradle
+          sed -i 's#<application#<application android:extractNativeLibs="true"#' android/app/src/main/AndroidManifest.xml
+          sed -i '0,/^android {/s//android {\n    packagingOptions { jniLibs { useLegacyPackaging true } }/' android/app/build.gradle
+          sed -i '0,/defaultConfig {/s//defaultConfig {\n        ndk { abiFilters "arm64-v8a" }/' android/app/build.gradle
+          sed -i '0,/^dependencies {/s//dependencies {\n    implementation "io.github.junkfood02.youtubedl-android:library:0.18.1"\n    implementation "io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1"/' android/app/build.gradle
+          grep -n "junkfood02\|useLegacyPackaging\|abiFilters" android/app/build.gradle
+          grep -n "minSdkVersion" android/variables.gradle
       - name: Use fixed signing key
         run: |
           mkdir -p ~/.android
@@ -144,7 +156,13 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          if ! ./gradlew assembleDebug; then
+            echo "::warning::Build with the on-phone YouTube engine failed. Retrying without it (YouTube will use the server engine)."
+            cd ..
+            bash android-extra/strip-yt.sh
+            cd android
+            ./gradlew assembleDebug
+          fi
           cp app/build/outputs/apk/debug/app-debug.apk ../ClipGrab.apk
           APKSIGNER=$(ls $ANDROID_HOME/build-tools/*/apksigner | tail -1)
           $APKSIGNER verify --print-certs ../ClipGrab.apk | grep -i "SHA-256" || true
