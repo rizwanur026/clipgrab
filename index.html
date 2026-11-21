@@ -540,8 +540,8 @@ function showCard(d, url) {
   $("ctitle").textContent = d.title;
   $("cauth").innerHTML = (p ? logo(p) : "") + `<span>${esc(d.author || PNAME[p] || "")}</span>`;
   const tq = topQ(), bestSub = tq ? resLabel(tq.h) + (tq.size ? " · ~" + fmtB(tq.size) : "") : "Highest available";
-  const chips = [{v:"best", kind:"video", label:"Best", sub:bestSub, cls:tq && tq.h >= 2160 ? "k4" : ""}];
-  qs.forEach(q => chips.push({v:String(q.sel), kind:"video", wm:!!q.wm, label:resLabel(q.h) + (q.wm ? " WM" : ""),
+  const chips = [{v:"best", fid:tq && tq.fid || "", kind:"video", label:"Best", sub:bestSub, cls:tq && tq.h >= 2160 ? "k4" : ""}];
+  qs.forEach(q => chips.push({v:String(q.sel), fid:q.fid || "", kind:"video", wm:!!q.wm, label:resLabel(q.h) + (q.wm ? " WM" : ""),
     sub:[q.wm ? "Watermark" : q.codec, q.size ? "~" + fmtB(q.size) : ""].filter(Boolean).join(" · "), cls:q.h >= 2160 ? "k4" : q.h >= 1440 ? "k2" : ""}));
   chips.push({v:"audio", kind:"audio", label:"MP3", sub:"Audio only", cls:"wide"});
   $("qs").innerHTML = chips.map((c, i) => `<button type="button" class="q ${c.cls}${i === 0 ? " on" : ""} ${c.v === "audio" ? "wide" : ""}" data-i="${i}"><b>${esc(c.label)}</b><small>${esc(c.sub || " ")}</small></button>`).join("");
@@ -561,7 +561,7 @@ const newId = () => "d" + Date.now().toString(36) + Math.random().toString(36).s
 $("dl").onclick = () => {
   if (!cur) return;
   const it = {id:newId(), url:cur.url, kind:pick.kind, q: pick.kind === "audio" ? "best" : pick.v,
-    qlabel: pick.kind === "audio" ? "MP3" : pick.v === "best" ? (topQ() ? resLabel(topQ().h) : "Best") : pick.label, wm: !!pick.wm,
+    qlabel: pick.kind === "audio" ? "MP3" : pick.v === "best" ? (topQ() ? resLabel(topQ().h) : "Best") : pick.label, wm: !!pick.wm, fid: pick.kind === "audio" ? "" : (pick.fid || ""),
     title:cur.title, author:cur.author, thumb:cur.thumbnail, platform:cur.platform, t:Date.now()};
   if (cur.platform === "tiktok" && phoneOK() && ttLoggedIn()) it.engines = ["phone", "server"];
   addItem(it);
@@ -642,7 +642,7 @@ async function run(it) {
 async function phoneRun(it) {
   if (!phoneOK()) return {ok:false, err:"The on-phone engine isn’t in this app version."};
   const dead = () => !items.includes(it);
-  const opts = {q:it.q, kind:it.kind === "audio" ? "audio" : "video", start:it.start || 0, end:it.end || 0, precise:it.precise !== false, wm:!!it.wm, dur:it.dur || 0,
+  const opts = {q:it.q, kind:it.kind === "audio" ? "audio" : "video", start:it.start || 0, end:it.end || 0, precise:it.precise !== false, wm:!!it.wm, fid:it.fid || "", dur:it.dur || 0,
     name: it.title + (it.kind === "video" ? ` (${fileTag(it)})` : it.clip ? " (clip)" : "")};
   const id = ClipYT.start(it.url, JSON.stringify(opts)); it.yt = id; it.via = "phone"; it.stage = "Starting on your phone…"; paint(it);
   for (;;) {
@@ -677,7 +677,7 @@ async function serverRun(it) {
   } else {
     let d, tries = 0;
     for (;;) {
-      const r = await fetch(API + "/api/prepare", {method:"POST", headers:H, body:JSON.stringify({url:it.url, q:it.q, kind:it.kind === "audio" ? "audio" : "video", start:it.start || 0, end:it.end || 0, precise:it.precise !== false, wm:!!it.wm})});
+      const r = await fetch(API + "/api/prepare", {method:"POST", headers:H, body:JSON.stringify({url:it.url, q:it.q, kind:it.kind === "audio" ? "audio" : "video", start:it.start || 0, end:it.end || 0, precise:it.precise !== false, wm:!!it.wm, fid:it.fid || ""})});
       d = await r.json().catch(() => ({}));
       if (r.status === 429 && tries++ < 60) { it.stage = "Waiting for a free slot…"; paint(it); await sleep(3000); if (dead()) return {ok:true}; continue; }
       if (!r.ok) return {ok:false, err:d.error || "Couldn’t start. Tap retry."};
@@ -806,7 +806,7 @@ function ytQualities(d, tt, youtube) {   // same rules as the server: every real
   const noV = f => !f.vcodec || f.vcodec === "none", noA = f => !f.acodec || f.acodec === "none";
   const aud = fs.filter(f => noV(f) && !noA(f)).sort((a, b) => (b.tbr || 0) - (a.tbr || 0))[0];
   const vids = fs.filter(f => f.height && !noV(f));
-  const isWm = f => tt && String(f.format_id).includes("download");
+  const isWm = f => { if (!tt || !String(f.format_id).includes("download")) return false; const n = String(f.format_note || "").toLowerCase(); return !n || n.includes("watermark"); };
   const labelOf = f => f.width ? Math.min(f.height, f.width) : f.height;
   const floor = youtube ? 360 : 144;
   let out = [];
@@ -817,7 +817,7 @@ function ytQualities(d, tt, youtube) {   // same rules as the server: every real
       if (label < floor) return;
       const b = grp.sort(youtube ? (x, y) => (y.tbr || 0) - (x.tbr || 0) : (x, y) => (est(y) - est(x)) || ((y.tbr || 0) - (x.tbr || 0)))[0];
       let size = est(b); if (size && noA(b) && aud) size += est(aud);
-      out.push({h:label, sel:b.height, size, wm, codec:codecName(b.vcodec)});
+      out.push({h:label, sel:b.height, fid:String(b.format_id || ""), size, wm, codec:codecName(b.vcodec)});
     });
   }
   const clean = out.filter(o => !o.wm), top = Math.max(0, ...clean.map(o => o.h));

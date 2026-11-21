@@ -76,7 +76,9 @@ def valid(url: str) -> bool:
         host == d or host.endswith("." + d) for d in ALLOWED
     )
 
-def fmt(height, tiktok, wm=False):
+def fmt(height, tiktok, wm=False, fid=""):
+    if fid and re.fullmatch(r"[\w.\-+]{1,80}", fid):   # the exact main file picked from the list
+        return f"{fid}[acodec!=none]/{fid}+ba/" + fmt(height, tiktok, wm)
     if tiktok and wm:   # the user explicitly picked the watermarked original
         return "bv*[format_id*=download]+ba/b[format_id*=download]/bv*+ba/b"
     nw = "[format_id!*=download]" if tiktok else ""  # skip watermarked TikTok stream
@@ -97,6 +99,14 @@ def est(f, dur):
         n = f["tbr"] * 1000 / 8 * dur
     return int(n) if n else 0
 
+def is_wm_fmt(f, tiktok):
+    """TikTok's "download" stream is only a watermark file when yt-dlp says so (or says nothing).
+    A clean original (like the 1080x1920 one ssstik serves) is a normal file."""
+    if not tiktok or "download" not in str(f.get("format_id")):
+        return False
+    note = str(f.get("format_note") or "").lower()
+    return not note or "watermark" in note
+
 def qualities(d, tiktok, youtube=False):
     """Every real resolution of the video, biggest first (like the YouTube list).
     h     = label shown to the user (short side, so vertical reels read 1080p, not 1920p)
@@ -107,7 +117,7 @@ def qualities(d, tiktok, youtube=False):
     audio = max((f for f in fs if f.get("vcodec") in (None, "none") and f.get("acodec") not in (None, "none")),
                 key=lambda f: f.get("tbr") or 0, default=None)
     vids = [f for f in fs if f.get("height") and f.get("vcodec") not in (None, "none")]
-    is_wm = lambda f: tiktok and "download" in str(f.get("format_id"))
+    is_wm = lambda f: is_wm_fmt(f, tiktok)
     label_of = lambda f: min(f["height"], f.get("width") or f["height"])
     # biggest file wins inside one resolution (YouTube: highest bitrate, which is what the h264-sorted download fetches)
     rank = (lambda f: (f.get("tbr") or 0, est(f, dur))) if youtube else (lambda f: (est(f, dur), f.get("tbr") or 0))
@@ -125,7 +135,7 @@ def qualities(d, tiktok, youtube=False):
             size = est(b, dur)
             if size and b.get("acodec") in (None, "none") and audio:
                 size += est(audio, dur)
-            out.append({"h": label, "sel": b["height"], "size": size, "wm": wm, "codec": codec_name(b.get("vcodec"))})
+            out.append({"h": label, "sel": b["height"], "fid": str(b.get("format_id") or ""), "size": size, "wm": wm, "codec": codec_name(b.get("vcodec"))})
     clean = [o for o in out if not o["wm"]]
     top = max((o["h"] for o in clean), default=0)
     out = [o for o in out if not o["wm"] or o["h"] > top
@@ -187,7 +197,7 @@ def sweep():
             shutil.rmtree(j.get("dir", ""), ignore_errors=True)
             JOBS.pop(k, None)
 
-def run(jid, url, q, kind, start=0, end=0, precise=True, wm=False):
+def run(jid, url, q, kind, start=0, end=0, precise=True, wm=False, fid=""):
     j = JOBS[jid]
     tmp = tempfile.mkdtemp()
     j["dir"] = tmp
@@ -215,7 +225,7 @@ def run(jid, url, q, kind, start=0, end=0, precise=True, wm=False):
         opts.update(format="bestaudio/best", postprocessors=[
             {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}])
     else:
-        opts.update(format=fmt(int(q) if q.isdigit() else None, "tiktok.com" in url, wm), merge_output_format="mp4")
+        opts.update(format=fmt(int(q) if q.isdigit() else None, "tiktok.com" in url, wm, fid), merge_output_format="mp4")
     try:
         extra = {k: v for k, v in opts.items() if k not in ("quiet", "noplaylist")}
         d = extract(url, download=True, **extra)
@@ -244,13 +254,14 @@ def prepare():
         return jsonify(error="Clips can be at most 4 hours."), 400
     precise = bool(b.get("precise", True))
     wm = bool(b.get("wm", False))
+    fid = str(b.get("fid") or "")
     with LOCK:
         sweep()
         if sum(1 for j in JOBS.values() if j["state"] == "running") >= 3:
             return jsonify(error="Server is busy. Try again in a minute."), 429
         jid = uuid.uuid4().hex[:12]
         JOBS[jid] = {"state": "running", "stage": "downloading", "pct": 0, "speed": 0, "t": time.time()}
-    threading.Thread(target=run, args=(jid, url, q, kind, start, end, precise, wm), daemon=True).start()
+    threading.Thread(target=run, args=(jid, url, q, kind, start, end, precise, wm, fid), daemon=True).start()
     return jsonify(id=jid)
 
 @app.get("/api/job/<jid>")

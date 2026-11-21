@@ -356,7 +356,7 @@ public class YtNative {
     } catch (Throwable ignore) { /* leave the files as they are */ }
   }
 
-  private void nativeFallback(Job j, String id, String url, File dir, String ea, String q, boolean audio, boolean tt, boolean wm,
+  private void nativeFallback(Job j, String id, String url, File dir, String ea, String q, boolean audio, boolean tt, boolean wm, String fid,
                               File ck, double s, double e, boolean clip, boolean trimOk,
                               Function3<Float, Long, String, Unit> cb) throws Throwable {
     if (clip && !trimOk) throw new Exception("Cutting without ffmpeg only works for videos up to 30 minutes");
@@ -385,6 +385,7 @@ public class YtNative {
     String nw = tt ? "[format_id!*=download]" : "";
     String vf = tt && wm ? "bv*[format_id*=download]/b[format_id*=download]/bv*/b"
         : "bv" + h + nw + "/b" + h + nw + "/bv/b";
+    if (!fid.isEmpty() && !(tt && wm)) vf = fid + "/" + vf;
     String sort = tt ? "res,br" : best ? "vcodec:h264,res" : "res,vcodec:h264";
     j.stage = "Downloading…";
     dlTo(url, id, ck, ea, vdir, vf, sort, cb);
@@ -497,6 +498,8 @@ public class YtNative {
         double s = o.optDouble("start", 0), e = o.optDouble("end", 0);
         boolean precise = o.optBoolean("precise", true);
         boolean wmOn = o.optBoolean("wm", false);
+        String fidRaw = o.optString("fid", "");
+        final String fid = fidRaw.matches("[\\w.\\-+]{1,80}") ? fidRaw : "";   // exact main file chosen from the list
         double durS = o.optDouble("dur", 0);
         String base = o.optString("name", "video").replaceAll("[^\\p{L}\\p{N} _-]", "").trim();
         if (base.isEmpty()) base = "video";
@@ -539,13 +542,15 @@ public class YtNative {
               if (mode == 2) rq.addOption("--postprocessor-args", "ExtractAudio+ffmpeg_o:-ss " + (long) fs0 + " -to " + (long) fe0);
             }
           } else if (mode == 1) {
-            rq.addOption("-f", "b" + h + "[ext=mp4]/b" + h + "/b[ext=mp4]/b");
+            String one = fid.isEmpty() ? "" : fid + "[acodec!=none][vcodec!=none]/";
+            rq.addOption("-f", one + "b" + h + "[ext=mp4]/b" + h + "/b[ext=mp4]/b");
           } else {
             String nw = tt ? "[format_id!*=download]" : "";   // skip the watermarked TikTok stream
             String f;
             if (mode == 2) f = "bv*" + h + "+ba";
             else if (tt && fWm) f = "bv*[format_id*=download]+ba/b[format_id*=download]/bv*+ba/b";
             else f = "bv*" + h + nw + "+ba/b" + h + nw + "/b";
+            if (!fid.isEmpty()) f = fid + "[acodec!=none]/" + fid + "+ba/" + f;
             rq.addOption("-f", f);
             rq.addOption("-S", tt ? "res,br" : "res,vcodec:h264,acodec:aac");
             rq.addOption("--merge-output-format", "mp4");
@@ -570,7 +575,7 @@ public class YtNative {
           return Unit.INSTANCE;
         };
         final File fck2 = ck;
-        NativeFb nf = ea -> nativeFallback(j, id, url, dir, ea, fq, fAudio, tt, fWm, fck2, fs0, fe0, clip, trimOk, cb);
+        NativeFb nf = ea -> nativeFallback(j, id, url, dir, ea, fq, fAudio, tt, fWm, fid, fck2, fs0, fe0, clip, trimOk, cb);
         runPlans(j, id, url, dir, clip, trimOk, fac, nf, cb);
         if (j.cancelled) return;
 
