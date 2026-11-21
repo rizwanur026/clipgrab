@@ -8,6 +8,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # SHA-256 of debug_keystore.b64. Every APK MUST carry this cert, otherwise Android refuses to update over the old app.
+      EXPECTED_SHA256: "76:44:13:0B:33:82:37:6A:E4:F6:9E:BE:1E:1C:D7:4C:E7:AB:52:99:78:37:7F:F1:B7:5B:49:37:E6:AA:B8:B1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -148,10 +151,31 @@ jobs:
           grep -n "minSdkVersion" android/variables.gradle
       - name: Use fixed signing key
         run: |
-          mkdir -p ~/.android
+          set -e
           KS=$(ls debug*keystore*.b64 | head -1)
           echo "Using $KS"
-          base64 -d "$KS" > ~/.android/debug.keystore
+          mkdir -p "$GITHUB_WORKSPACE/signing" ~/.android
+          base64 -d "$KS" > "$GITHUB_WORKSPACE/signing/debug.keystore"
+          cp "$GITHUB_WORKSPACE/signing/debug.keystore" ~/.android/debug.keystore
+          GOT=$(keytool -list -v -keystore "$GITHUB_WORKSPACE/signing/debug.keystore" -storepass android -alias androiddebugkey | grep 'SHA256:' | head -1 | sed 's/.*SHA256: *//')
+          echo "Keystore SHA-256: $GOT"
+          if [ "$GOT" != "$EXPECTED_SHA256" ]; then
+            echo "::error::The signing keystore changed. Phones with the old app would get 'App not installed'. Restore the original debug_keystore.b64."
+            exit 1
+          fi
+          # Tell Gradle explicitly which key to sign with (do not rely on ~/.android being picked up)
+          python3 - <<'PY'
+          import os, re
+          p = "android/app/build.gradle"
+          s = open(p).read()
+          ks = os.environ["GITHUB_WORKSPACE"] + "/signing/debug.keystore"
+          blk = ('android {\n    signingConfigs {\n        debug {\n            storeFile file("%s")\n'
+                 '            storePassword "android"\n            keyAlias "androiddebugkey"\n            keyPassword "android"\n        }\n    }\n' % ks)
+          assert re.search(r"^android \{\n", s, re.M), "android block not found"
+          s = re.sub(r"^android \{\n", lambda m: blk, s, count=1, flags=re.M)
+          open(p, "w").write(s)
+          PY
+          grep -n -A7 "signingConfigs" android/app/build.gradle
       - name: Build APK
         run: |
           cd android
@@ -165,11 +189,20 @@ jobs:
           fi
           cp app/build/outputs/apk/debug/app-debug.apk ../ClipGrab.apk
           APKSIGNER=$(ls $ANDROID_HOME/build-tools/*/apksigner | tail -1)
-          $APKSIGNER verify --print-certs ../ClipGrab.apk | grep -i "SHA-256" || true
+          OUT=$($APKSIGNER verify --print-certs ../ClipGrab.apk)
+          echo "$OUT" | grep -i "SHA-256"
+          GOT=$(echo "$OUT" | grep -i 'certificate SHA-256 digest' | head -1 | sed 's/.*: *//' | tr 'A-F' 'a-f')
+          WANT=$(echo "$EXPECTED_SHA256" | tr -d ':' | tr 'A-F' 'a-f')
+          if [ "$GOT" != "$WANT" ]; then
+            echo "::error::APK is signed with the wrong key ($GOT). It would fail to update on phones. Not publishing."
+            exit 1
+          fi
+          echo "Signing key OK: $GOT"
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}
           name: ClipGrab v${{ github.run_number }}
+          body: "Signing certificate SHA-256: ${{ env.EXPECTED_SHA256 }}"
           files: ClipGrab.apk
           make_latest: true
