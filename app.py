@@ -1,4 +1,4 @@
-import os, re, shutil, tempfile, threading, time, uuid, urllib.request
+import json, os, re, shutil, tempfile, threading, time, uuid, urllib.request
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, Response, send_file, send_from_directory, after_this_request
 from flask_cors import CORS
@@ -76,10 +76,20 @@ def valid(url: str) -> bool:
         host == d or host.endswith("." + d) for d in ALLOWED
     )
 
-def fmt(height, tiktok):
+def fmt(height, tiktok, wm=False):
+    if tiktok and wm:   # the user explicitly picked the watermarked original
+        return "bv*[format_id*=download]+ba/b[format_id*=download]/bv*+ba/b"
     nw = "[format_id!*=download]" if tiktok else ""  # skip watermarked TikTok stream
     h = f"[height<={height}]" if height else ""
     return f"bv*{h}{nw}+ba/b{h}{nw}/b"
+
+def codec_name(vc):
+    v = (vc or "").lower()
+    if v.startswith(("avc", "h264")): return "H.264"
+    if v.startswith(("hev", "hvc", "h265", "bytevc1")): return "H.265"
+    if v.startswith(("vp9", "vp09")): return "VP9"
+    if v.startswith(("av01", "av1")): return "AV1"
+    return ""
 
 def est(f, dur):
     n = f.get("filesize") or f.get("filesize_approx")
@@ -87,28 +97,41 @@ def est(f, dur):
         n = f["tbr"] * 1000 / 8 * dur
     return int(n) if n else 0
 
-def qualities(d, tiktok):
-    """Every real resolution of the video (360p and up, up to 4K+).
-    h   = label shown to the user (short side, so vertical reels read 1080p, not 1920p)
-    sel = real height used for the yt-dlp filter."""
+def qualities(d, tiktok, youtube=False):
+    """Every real resolution of the video, biggest first (like the YouTube list).
+    h     = label shown to the user (short side, so vertical reels read 1080p, not 1920p)
+    sel   = real height used for the yt-dlp filter
+    wm    = TikTok's watermarked original, only listed when it adds a bigger/better file
+    codec = H.264 / H.265 / VP9 / AV1 when known"""
     dur, fs = d.get("duration"), d.get("formats", [])
     audio = max((f for f in fs if f.get("vcodec") in (None, "none") and f.get("acodec") not in (None, "none")),
                 key=lambda f: f.get("tbr") or 0, default=None)
-    vids = [f for f in fs if f.get("height") and f.get("vcodec") not in (None, "none")
-            and not (tiktok and "download" in str(f.get("format_id")))]
-    out, seen = [], set()
-    for sel in sorted({f["height"] for f in vids}, reverse=True):
-        b = max((f for f in vids if f["height"] == sel), key=lambda f: f.get("tbr") or 0)
-        w = b.get("width") or 0
-        label = min(sel, w) if w else sel
-        if label < 360 or label in seen:
-            continue
-        seen.add(label)
-        size = est(b, dur)
-        if size and b.get("acodec") in (None, "none") and audio:
-            size += est(audio, dur)
-        out.append({"h": label, "sel": sel, "size": size})
-    return out[:10]
+    vids = [f for f in fs if f.get("height") and f.get("vcodec") not in (None, "none")]
+    is_wm = lambda f: tiktok and "download" in str(f.get("format_id"))
+    label_of = lambda f: min(f["height"], f.get("width") or f["height"])
+    # biggest file wins inside one resolution (YouTube: highest bitrate, which is what the h264-sorted download fetches)
+    rank = (lambda f: (f.get("tbr") or 0, est(f, dur))) if youtube else (lambda f: (est(f, dur), f.get("tbr") or 0))
+    floor = 360 if youtube else 144                               # reels can be small, don't hide them
+    out = []
+    for wm in ((False, True) if tiktok else (False,)):
+        groups = {}
+        for f in vids:
+            if is_wm(f) == wm:
+                groups.setdefault(label_of(f), []).append(f)
+        for label, grp in groups.items():
+            if label < floor:
+                continue
+            b = max(grp, key=rank)
+            size = est(b, dur)
+            if size and b.get("acodec") in (None, "none") and audio:
+                size += est(audio, dur)
+            out.append({"h": label, "sel": b["height"], "size": size, "wm": wm, "codec": codec_name(b.get("vcodec"))})
+    clean = [o for o in out if not o["wm"]]
+    top = max((o["h"] for o in clean), default=0)
+    out = [o for o in out if not o["wm"] or o["h"] > top
+           or any(o["h"] == c["h"] and o["size"] > c["size"] * 1.15 for c in clean)]
+    out.sort(key=lambda o: (o["h"], o["size"]), reverse=True)
+    return out[:12]
 
 @app.get("/")
 def index():
@@ -132,7 +155,7 @@ def info():
         author=d.get("uploader") or d.get("channel") or "",
         thumbnail=d.get("thumbnail"),
         duration=d.get("duration"),
-        qualities=qualities(d, "tiktok.com" in url),
+        qualities=qualities(d, "tiktok.com" in url, is_yt(url)),
         chapters=[{"title": c.get("title"), "start": c.get("start_time"), "end": c.get("end_time")}
                   for c in (d.get("chapters") or [])][:40],
     )
@@ -164,7 +187,7 @@ def sweep():
             shutil.rmtree(j.get("dir", ""), ignore_errors=True)
             JOBS.pop(k, None)
 
-def run(jid, url, q, kind, start=0, end=0, precise=True):
+def run(jid, url, q, kind, start=0, end=0, precise=True, wm=False):
     j = JOBS[jid]
     tmp = tempfile.mkdtemp()
     j["dir"] = tmp
@@ -192,7 +215,7 @@ def run(jid, url, q, kind, start=0, end=0, precise=True):
         opts.update(format="bestaudio/best", postprocessors=[
             {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}])
     else:
-        opts.update(format=fmt(int(q) if q.isdigit() else None, "tiktok.com" in url), merge_output_format="mp4")
+        opts.update(format=fmt(int(q) if q.isdigit() else None, "tiktok.com" in url, wm), merge_output_format="mp4")
     try:
         extra = {k: v for k, v in opts.items() if k not in ("quiet", "noplaylist")}
         d = extract(url, download=True, **extra)
@@ -220,13 +243,14 @@ def prepare():
     if end and end - start > 4 * 3600:
         return jsonify(error="Clips can be at most 4 hours."), 400
     precise = bool(b.get("precise", True))
+    wm = bool(b.get("wm", False))
     with LOCK:
         sweep()
         if sum(1 for j in JOBS.values() if j["state"] == "running") >= 3:
             return jsonify(error="Server is busy. Try again in a minute."), 429
         jid = uuid.uuid4().hex[:12]
         JOBS[jid] = {"state": "running", "stage": "downloading", "pct": 0, "speed": 0, "t": time.time()}
-    threading.Thread(target=run, args=(jid, url, q, kind, start, end, precise), daemon=True).start()
+    threading.Thread(target=run, args=(jid, url, q, kind, start, end, precise, wm), daemon=True).start()
     return jsonify(id=jid)
 
 @app.get("/api/job/<jid>")
@@ -243,6 +267,47 @@ def file(jid):
     if not j or j["state"] != "ready":
         return jsonify(error="Not ready"), 404
     return send_file(j["path"], as_attachment=True, download_name=j["name"])
+
+# ---- app update check (the phone asks us so GitHub's per-IP rate limit on phones can't break it) ----
+LATEST, LATEST_TTL = {}, 300
+
+def _get(url, accept):
+    h = {"User-Agent": "ClipGrab", "Accept": accept}
+    if os.environ.get("GITHUB_TOKEN") and "api.github.com" in url:
+        h["Authorization"] = "Bearer " + os.environ["GITHUB_TOKEN"]
+    with urllib.request.urlopen(urllib.request.Request(url, headers=h), timeout=12) as r:
+        return r.read().decode("utf-8", "replace")
+
+def gh_latest(repo):
+    try:
+        j = json.loads(_get(f"https://api.github.com/repos/{repo}/releases/latest", "application/vnd.github+json"))
+        apk = next((a for a in j.get("assets", []) if a.get("name", "").endswith(".apk")), None)
+        if j.get("tag_name") and apk:
+            return {"tag": j["tag_name"], "url": apk["browser_download_url"]}
+    except Exception:
+        pass
+    try:   # the releases feed has no rate limit
+        x = _get(f"https://github.com/{repo}/releases.atom", "application/atom+xml")
+        m = re.search(r"/releases/tag/([^\"<\s]+)", x)
+        if m:
+            return {"tag": m.group(1), "url": f"https://github.com/{repo}/releases/download/{m.group(1)}/ClipGrab.apk"}
+    except Exception:
+        pass
+    return None
+
+@app.get("/api/latest")
+def latest():
+    repo = request.args.get("repo", "")
+    if not re.fullmatch(r"[\w.-]+/[\w.-]+", repo):
+        return jsonify(error="Bad repo."), 400
+    c = LATEST.get(repo)
+    if c and time.time() - c[0] < LATEST_TTL:
+        return jsonify(c[1])
+    r = gh_latest(repo)
+    if not r:
+        return jsonify(error="Couldn’t reach GitHub."), 502
+    LATEST[repo] = (time.time(), r)
+    return jsonify(r)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
