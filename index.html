@@ -398,8 +398,8 @@ main{max-width:580px;margin:0 auto;padding:0 18px 70px}
     <p class="hint" id="uhint" hidden>If Android says “App not installed”, uninstall the old ClipGrab once, then install again.</p>
     <button class="pri" id="ubtn" type="button">Check for updates</button>
     <button class="ghost" id="uagain" type="button" hidden>Download again</button>
-    <button class="ghost" id="uengine" type="button" hidden>Update YouTube engine</button>
-    <p class="hint" id="uenghint" hidden>YouTube changes often. If the On-phone engine stops working, update it here (needs internet).</p>
+    <button class="ghost" id="uengine" type="button" hidden>Update downloader engine</button>
+    <p class="hint" id="uenghint" hidden>TikTok, YouTube, Instagram and Facebook change often. If downloads stop working or a video shows fewer qualities, update the engine here (needs internet).</p>
     <p class="hint" id="ediag" hidden></p>
   </div>
   <div class="ucard" id="ttcard" hidden>
@@ -541,7 +541,10 @@ function showCard(d, url) {
   $("cauth").innerHTML = (p ? logo(p) : "") + `<span>${esc(d.author || PNAME[p] || "")}</span>`;
   const tq = topQ(), bestSub = tq ? resLabel(tq.h) + (tq.size ? " · ~" + fmtB(tq.size) : "") : "Highest available";
   const chips = [{v:"best", fid:tq && tq.fid || "", kind:"video", label:"Best", sub:bestSub, cls:tq && tq.h >= 2160 ? "k4" : ""}];
-  qs.forEach(q => chips.push({v:String(q.sel), fid:q.fid || "", kind:"video", wm:!!q.wm, label:resLabel(q.h) + (q.wm ? " WM" : ""),
+  const wmTop = qs.find(q => q.wm);
+  if (wmTop) chips.push({v:String(wmTop.sel), fid:wmTop.fid || "", kind:"video", wm:true, label:"Best WM",
+    sub:[resLabel(wmTop.h), "Watermark", wmTop.size ? "~" + fmtB(wmTop.size) : ""].filter(Boolean).join(" · "), cls:wmTop.h >= 2160 ? "k4" : ""});
+  qs.filter(q => q !== wmTop).forEach(q => chips.push({v:String(q.sel), fid:q.fid || "", kind:"video", wm:!!q.wm, label:resLabel(q.h) + (q.wm ? " WM" : ""),
     sub:[q.wm ? "Watermark" : q.codec, q.size ? "~" + fmtB(q.size) : ""].filter(Boolean).join(" · "), cls:q.h >= 2160 ? "k4" : q.h >= 1440 ? "k2" : ""}));
   chips.push({v:"audio", kind:"audio", label:"MP3", sub:"Audio only", cls:"wide"});
   $("qs").innerHTML = chips.map((c, i) => `<button type="button" class="q ${c.cls}${i === 0 ? " on" : ""} ${c.v === "audio" ? "wide" : ""}" data-i="${i}"><b>${esc(c.label)}</b><small>${esc(c.sub || " ")}</small></button>`).join("");
@@ -666,7 +669,7 @@ const ytFriendly = (m, p) => {
   if (/ffmpeg|ffprobe/i.test(m)) return "Merging/cutting needs ffmpeg, which isn’t working on this phone" + (ytDetail(m) ? ": " + ytDetail(m) : ".");
   return /sign in|not a bot|confirm you/i.test(m) ? "YouTube asked for a bot check on this connection. Try again in a bit or switch network."
     : /private|unavailable|removed/i.test(m) ? "This video is private or unavailable."
-    : "The phone engine failed" + (ytDetail(m) ? ": " + ytDetail(m) : ".") + " Tap Retry, or Settings → Update YouTube engine.";
+    : "The phone engine failed" + (ytDetail(m) ? ": " + ytDetail(m) : ".") + " Tap Retry, or Settings → Update downloader engine.";
 };
 async function serverRun(it) {
   const dead = () => !items.includes(it);
@@ -821,7 +824,8 @@ function ytQualities(d, tt, youtube) {   // same rules as the server: every real
     });
   }
   const clean = out.filter(o => !o.wm), top = Math.max(0, ...clean.map(o => o.h));
-  out = out.filter(o => !o.wm || o.h > top || clean.some(c => c.h === o.h && o.size > c.size * 1.15));
+  const wmBest = out.filter(o => o.wm).sort((a, b) => b.h - a.h || b.size - a.size)[0];
+  out = out.filter(o => !o.wm || o === wmBest);   // one watermark option: the highest one
   out.sort((a, b) => b.h - a.h || b.size - a.size);
   return out.slice(0, 12);
 }
@@ -1010,11 +1014,11 @@ $("uengine").onclick = async () => {
     const id = yt("updateStart");
     for (;;) {
       await sleep(800); const j = JSON.parse(yt("poll", id));
-      if (j.state === "done") { toast("YouTube engine updated"); break; }
-      if (j.state === "error") { toast("Couldn’t update the engine"); break; }
+      if (j.state === "done") { toast("Downloader engine updated"); break; }
+      if (j.state === "error") { toast("Couldn’t update the engine" + (j.error ? ": " + String(j.error).slice(0, 80) : "")); break; }
     }
   } catch { toast("Couldn’t update the engine"); }
-  b.disabled = false; b.textContent = "Update YouTube engine";
+  b.disabled = false; b.textContent = "Update downloader engine";
 };
 /* ---------- TikTok login (Settings page) ---------- */
 const ttOK = () => !!(window.ClipYT && typeof ClipYT.ttLogin === "function");

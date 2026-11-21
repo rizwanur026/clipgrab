@@ -138,8 +138,8 @@ def qualities(d, tiktok, youtube=False):
             out.append({"h": label, "sel": b["height"], "fid": str(b.get("format_id") or ""), "size": size, "wm": wm, "codec": codec_name(b.get("vcodec"))})
     clean = [o for o in out if not o["wm"]]
     top = max((o["h"] for o in clean), default=0)
-    out = [o for o in out if not o["wm"] or o["h"] > top
-           or any(o["h"] == c["h"] and o["size"] > c["size"] * 1.15 for c in clean)]
+    wm_best = max((o for o in out if o["wm"]), key=lambda o: (o["h"], o["size"]), default=None)
+    out = [o for o in out if not o["wm"] or o is wm_best]   # one watermark option: the highest one
     out.sort(key=lambda o: (o["h"], o["size"]), reverse=True)
     return out[:12]
 
