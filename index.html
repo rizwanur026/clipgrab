@@ -255,6 +255,7 @@ main{max-width:580px;margin:0 auto;padding:0 18px 70px}
 </header>
 <div class="menu" id="menu" hidden>
   <button type="button" data-go="downloads"><svg class="ic"><use href="#i-download"/></svg>Downloads<span class="sp"></span><span class="cnt" id="mcnt" hidden></span></button>
+  <button type="button" data-go="enhance"><svg class="ic"><use href="#i-image"/></svg>AI Enhance</button>
   <button type="button" data-go="update"><svg class="ic"><use href="#i-gear"/></svg>Settings<span class="sp"></span><span class="dt2" id="mdot" hidden></span></button>
 </div>
 
@@ -322,6 +323,23 @@ main{max-width:580px;margin:0 auto;padding:0 18px 70px}
 </section>
 
 <!-- UPDATE -->
+<section class="page" id="p-enhance" hidden>
+  <div class="ucard">
+    <div class="uic"><svg class="ic"><use href="#i-image"/></svg></div>
+    <h2>AI Enhance</h2>
+    <p class="uv">Make a clip sharper, up to 1080p–4K, 60 fps. Free.</p>
+    <ol class="steps" style="text-align:left;margin:12px 0 4px;padding-left:20px;line-height:1.6;color:var(--muted)">
+      <li>Download your clip in ClipGrab first.</li>
+      <li>Tap <b>Open free AI notebook</b> and sign in to Google.</li>
+      <li>Choose <b>Runtime → Change runtime type → T4 GPU</b>, then run the cells one by one.</li>
+      <li>Upload the clip when asked, then download the result.</li>
+    </ol>
+    <a class="pri" style="display:flex;justify-content:center;align-items:center;text-decoration:none;margin-top:14px" target="_blank" rel="noopener" href="https://colab.research.google.com/github/rizwanur026/clipgrab/blob/main/enhance/ClipGrab_AI_Enhance.ipynb">Open free AI notebook</a>
+    <p class="hint" style="margin-top:12px">Uses Google’s free GPU, so it is limited and can disconnect. Short clips (5–30 s) work best. AI adds believable detail; it can’t bring back what was never recorded.</p>
+    <a class="ghost" style="display:flex;justify-content:center;align-items:center;text-decoration:none;margin-top:10px" target="_blank" rel="noopener" href="https://huggingface.co/spaces/fatonyahmadfauzi/ai-photo-video-4k-enhancer">Quick try: Hugging Face enhancer</a>
+    <p class="hint" style="margin-top:8px">The Hugging Face one is faster to open but only gives a few free GPU minutes a day.</p>
+  </div>
+</section>
 <section class="page" id="p-update" hidden>
   <div class="ucard">
     <div class="uic"><svg class="ic"><use href="#i-download"/></svg></div>
@@ -384,7 +402,7 @@ function toast(t, go) { const e = $("toast"); e.textContent = t; tgo = go || nul
 $("toast").onclick = () => { if (tgo) tgo(); $("toast").classList.remove("on"); };
 
 /* ---------- pages + menu ---------- */
-const TITLES = {downloads:"Downloads", update:"Settings"};
+const TITLES = {downloads:"Downloads", enhance:"AI Enhance", update:"Settings"};
 let navN = 0;
 const nav = p => { navN++; location.hash = p; };
 const back = () => navN > 0 ? (navN--, history.back()) : location.replace("#home");
@@ -396,7 +414,7 @@ function setHead(p) {
 }
 function route() {
   const h = location.hash.slice(1), p = TITLES[h] ? h : "home";
-  for (const k of ["home", "downloads", "update"]) $("p-" + k).hidden = k !== p;
+  for (const k of ["home", "downloads", "enhance", "update"]) $("p-" + k).hidden = k !== p;
   if (p === "home") navN = 0;
   setHead(p); closeMenu(); window.scrollTo(0, 0);
   if (p === "downloads") renderDownloads();
