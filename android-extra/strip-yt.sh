@@ -5,7 +5,8 @@
 set -e
 cd "$(dirname "$0")/.."
 APP=android/app/src/main/java/com/clipgrab/app
-rm -f "$APP/Mux.java"
+rm -f "$APP/Mux.java" "$APP/DlService.java"
+sed -i 's#<service android:name="\.DlService"[^>]*/>##' android/app/src/main/AndroidManifest.xml
 sed -i '/\/\/ CPP$/d' android/app/build.gradle
 rm -rf android/app/src/main/jniLibs
 if [ "${1:-}" = "new" ]; then

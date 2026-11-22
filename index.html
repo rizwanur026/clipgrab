@@ -505,7 +505,7 @@ $("dl").onclick = () => {
   const it = {id:newId(), url:cur.url, kind:pick.kind, q: pick.kind === "audio" ? "best" : pick.v,
     qlabel: pick.kind === "audio" ? "MP3" : pick.v === "best" ? (topQ() ? resLabel(topQ().h) : "Best") : pick.label, wm: !!pick.wm, up: !!pick.up, fid: pick.kind === "audio" ? "" : (pick.fid || ""),
     title:cur.title, author:cur.author, thumb:cur.thumbnail, platform:cur.platform, t:Date.now()};
-  if (cur.platform === "tiktok" && phoneOK() && ttLoggedIn()) it.engines = ["phone", "server"];
+  if (phoneOK()) it.engines = ["phone", "server"];   // the phone downloads straight from the site (fast, and keeps going in the background)
   if (it.up) { it.engines = ["server"]; it.qlabel = "1080p (upscaled)"; }   // ffmpeg only runs on the server
   addItem(it);
 };
@@ -532,7 +532,7 @@ const DK = "clipgrab_dl2", H = {"Content-Type":"application/json"};
 function loadItems() {
   try {
     const l = JSON.parse(localStorage.getItem(DK));
-    if (Array.isArray(l)) return l.map(x => x.state === "prep" ? {...x, state:"err", stage:"Interrupted. Tap retry."} : x);
+    if (Array.isArray(l)) return l.map(x => x.state === "prep" ? (x.via === "phone" && x.yt ? {...x, resume:true} : {...x, state:"err", stage:"Interrupted. Tap retry."}) : x);
   } catch {}
   try {
     return (JSON.parse(localStorage.getItem("clipgrab_files")) || []).map(e => ({id:"m" + e.id, state:"done", kind:e.kind || "video", title:e.title || e.name, thumb:e.thumb, name:e.name, mime:e.mime, size:e.size, dm:e.id, t:e.t, tdone:e.t, platform:"", qlabel:""}));
@@ -583,12 +583,16 @@ async function phoneRun(it) {
   const dead = () => !items.includes(it);
   const opts = {q:it.q, kind:it.kind === "audio" ? "audio" : "video", start:it.start || 0, end:it.end || 0, precise:it.precise !== false, wm:!!it.wm, fid:it.fid || "", dur:it.dur || 0,
     name: it.title + (it.kind === "video" ? ` (${fileTag(it)})` : it.clip ? " (clip)" : "")};
-  const id = ClipYT.start(it.url, JSON.stringify(opts)); it.yt = id; it.via = "phone"; it.stage = "Starting on your phone…"; paint(it);
+  const id = ClipYT.start(it.url, JSON.stringify(opts)); it.yt = id; it.via = "phone"; it.stage = "Starting on your phone…"; persist(); paint(it);
+  return phonePoll(it, id);
+}
+async function phonePoll(it, id) {
+  const dead = () => !items.includes(it);
   for (;;) {
     await sleep(600);
     if (dead()) { yt("cancel", id); return {ok:true}; }
     let j; try { j = JSON.parse(ClipYT.poll(id)); } catch { continue; }
-    if (j.state === "error") return {ok:false, err:ytFriendly(j.error, it.platform), raw:j.error};
+    if (j.state === "error") return {ok:false, err:/Unknown job/.test(j.error || "") ? "Interrupted. Tap retry." : ytFriendly(j.error, it.platform), raw:j.error};
     if (j.state === "done") {
       Object.assign(it, {uri:j.uri, name:j.name, size:j.size, mime:j.mime, state:"done", pct:100, tdone:Date.now(), eta:0, yt:null});
       refresh(); toast("Saved · " + it.title.slice(0, 40), () => nav("downloads")); return {ok:true};
@@ -885,6 +889,13 @@ async function autoEngineUpdate() {
   } catch {}
 }
 setTimeout(() => { if (phoneOK()) yt("warm"); }, 1500);
+// downloads that were running when the app was closed: pick them up again if the phone is still doing them
+items.filter(i => i.resume).forEach(async it => {
+  delete it.resume;
+  if (!phoneOK()) { it.state = "err"; it.stage = "Interrupted. Tap retry."; return; }
+  const r = await phonePoll(it, it.yt).catch(() => ({ok:false, err:"Interrupted. Tap retry."}));
+  if (!r.ok && items.includes(it)) { it.state = "err"; it.stage = r.err || "Interrupted. Tap retry."; refresh(); }
+});
 setTimeout(autoEngineUpdate, 5000);
 (async () => {
   route();

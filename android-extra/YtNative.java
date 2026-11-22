@@ -61,6 +61,14 @@ public class YtNative {
   private final Context ctx;
   private final Map<String, Job> jobs = new HashMap<>();
   private final ExecutorService pool = Executors.newFixedThreadPool(3);
+
+  /** Keeps the downloads alive in the background (foreground service + wake lock). Optional: does nothing if the class isn't there. */
+  private void svc(boolean on) {
+    try {
+      Class<?> c = Class.forName("com.clipgrab.app.DlService");
+      c.getMethod(on ? "hold" : "release", android.content.Context.class).invoke(null, ctx);
+    } catch (Throwable ignore) {}
+  }
   private boolean inited = false;
   private volatile String ffErr = null;   // why ffmpeg could not start (shown in error details)
   private volatile String initErr = null;
@@ -490,6 +498,7 @@ public class YtNative {
   public String start(final String url, final String optsJson) {
     final String id = newJob();
     final Job j = job(id);
+    svc(true);
     pool.execute(() -> {
       File dir = new File(ctx.getCacheDir(), "yt/" + id);
       File ck = null;
@@ -603,6 +612,7 @@ public class YtNative {
       } finally {
         deleteDir(dir);
         if (ck != null) ck.delete();
+        svc(false);
       }
     });
     return id;
