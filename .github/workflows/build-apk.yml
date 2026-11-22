@@ -55,6 +55,7 @@ jobs:
               super.onCreate(b);
               getBridge().getWebView().addJavascriptInterface(new Native(), "ClipNative");
               getBridge().getWebView().addJavascriptInterface(new YtNative(this), "ClipYT"); //YT
+              if (android.os.Build.VERSION.SDK_INT >= 33) { try { requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 7); } catch (Exception e) {} }
             }
 
             class Native {
@@ -142,6 +143,10 @@ jobs:
         run: |
           cp android-extra/YtNative.java android/app/src/main/java/com/clipgrab/app/YtNative.java
           cp android-extra/Mux.java android/app/src/main/java/com/clipgrab/app/Mux.java
+          # keep downloads running in the background (foreground service + notification)
+          cp android-extra/DlService.java android/app/src/main/java/com/clipgrab/app/DlService.java
+          sed -i 's#</manifest>#<uses-permission android:name="android.permission.FOREGROUND_SERVICE" /><uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" /><uses-permission android:name="android.permission.POST_NOTIFICATIONS" /><uses-permission android:name="android.permission.WAKE_LOCK" /></manifest>#' android/app/src/main/AndroidManifest.xml
+          sed -i 's#</application>#<service android:name=".DlService" android:foregroundServiceType="dataSync" android:exported="false" /></application>#' android/app/src/main/AndroidManifest.xml
           # library needs minSdk 24 and native libs extracted to disk
           sed -i -E 's/minSdkVersion *= *[0-9]+/minSdkVersion = 24/' android/variables.gradle
           sed -i 's#<application#<application android:extractNativeLibs="true"#' android/app/src/main/AndroidManifest.xml
