@@ -8,7 +8,7 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=None)
 CORS(app)
 
-ALLOWED = ("instagram.com", "tiktok.com", "facebook.com", "fb.watch", "fb.com", "youtube.com", "youtu.be")
+ALLOWED = ("instagram.com", "tiktok.com", "facebook.com", "fb.watch", "fb.com")
 
 # ---- optional YouTube helpers (set these env vars on Render if YouTube blocks the server) ----
 #   YT_COOKIES : full contents of a Netscape cookies.txt exported from a logged-in browser
