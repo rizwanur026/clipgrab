@@ -564,7 +564,7 @@ function showCard(d, url) {
   const chips = [{v:"best", fid:tq && tq.fid || "", kind:"video", label:"Best", sub:bestSub, cls:tq && tq.h >= 2160 ? "k4" : ""}];
   const wmTop = qs.find(q => q.wm);
   if (wmTop) chips.push({v:String(wmTop.sel), fid:wmTop.fid || "", kind:"video", wm:true, label:"Best WM",
-    sub:[resLabel(wmTop.h), "Watermark", wmTop.size ? "~" + fmtB(wmTop.size) : ""].filter(Boolean).join(" · "), cls:wmTop.h >= 2160 ? "k4" : ""});
+    sub:[wmTop.h ? resLabel(wmTop.h) : "Original", "Watermark", wmTop.size ? "~" + fmtB(wmTop.size) : "size unknown"].filter(Boolean).join(" · "), cls:wmTop.h >= 2160 ? "k4" : ""});
   qs.filter(q => q !== wmTop).forEach(q => chips.push({v:String(q.sel), fid:q.fid || "", kind:"video", wm:!!q.wm, label:resLabel(q.h) + (q.wm ? " WM" : ""),
     sub:[q.wm ? "Watermark" : q.codec, q.size ? "~" + fmtB(q.size) : ""].filter(Boolean).join(" · "), cls:q.h >= 2160 ? "k4" : q.h >= 1440 ? "k2" : ""}));
   chips.push({v:"audio", kind:"audio", label:"MP3", sub:"Audio only", cls:"wide"});
@@ -836,7 +836,7 @@ function ytQualities(d, tt, youtube) {   // same rules as the server: every real
   const noV = f => !f.vcodec || f.vcodec === "none", noA = f => !f.acodec || f.acodec === "none";
   const aud = fs.filter(f => noV(f) && !noA(f)).sort((a, b) => (b.tbr || 0) - (a.tbr || 0))[0];
   const vids = fs.filter(f => f.height && !noV(f));
-  const isWm = f => { if (!tt || !String(f.format_id).includes("download")) return false; const n = String(f.format_note || "").toLowerCase(); return !n || n.includes("watermark"); };
+  const isWm = f => { if (!tt || !String(f.format_id).includes("download")) return false; let n = String(f.format_note || "").toLowerCase(); if (n === "null") n = ""; return !n || n.includes("watermark"); };
   const labelOf = f => f.width ? Math.min(f.height, f.width) : f.height;
   const floor = youtube ? 360 : 144;
   let out = [];
@@ -850,6 +850,7 @@ function ytQualities(d, tt, youtube) {   // same rules as the server: every real
       out.push({h:label, sel:b.height, fid:String(b.format_id || ""), size, wm, codec:codecName(b.vcodec)});
     });
   }
+  if (tt) { const u = fs.find(f => isWm(f) && !f.height && !noV(f)); if (u) out.push({h:0, sel:"", fid:String(u.format_id || ""), size:est(u), wm:true, codec:codecName(u.vcodec)}); }
   const clean = out.filter(o => !o.wm), top = Math.max(0, ...clean.map(o => o.h));
   const wmBest = out.filter(o => o.wm).sort((a, b) => b.h - a.h || b.size - a.size)[0];
   out = out.filter(o => !o.wm || o === wmBest);   // one watermark option: the highest one

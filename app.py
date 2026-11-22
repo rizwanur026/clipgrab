@@ -105,6 +105,8 @@ def is_wm_fmt(f, tiktok):
     if not tiktok or "download" not in str(f.get("format_id")):
         return False
     note = str(f.get("format_note") or "").lower()
+    if note == "null":
+        note = ""
     return not note or "watermark" in note
 
 def qualities(d, tiktok, youtube=False):
@@ -138,6 +140,12 @@ def qualities(d, tiktok, youtube=False):
             out.append({"h": label, "sel": b["height"], "fid": str(b.get("format_id") or ""), "size": size, "wm": wm, "codec": codec_name(b.get("vcodec"))})
     clean = [o for o in out if not o["wm"]]
     top = max((o["h"] for o in clean), default=0)
+    if tiktok:   # a watermarked file whose size yt-dlp doesn't report (no height): still offer it, label says so
+        for f in fs:
+            if is_wm(f) and not f.get("height") and f.get("vcodec") not in (None, "none"):
+                out.append({"h": 0, "sel": "", "fid": str(f.get("format_id") or ""), "size": est(f, dur), "wm": True,
+                            "codec": codec_name(f.get("vcodec"))})
+                break
     wm_best = max((o for o in out if o["wm"]), key=lambda o: (o["h"], o["size"]), default=None)
     out = [o for o in out if not o["wm"] or o is wm_best]   # one watermark option: the highest one
     out.sort(key=lambda o: (o["h"], o["size"]), reverse=True)
