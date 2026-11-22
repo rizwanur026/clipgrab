@@ -1,4 +1,4 @@
-import json, os, re, shutil, tempfile, threading, time, uuid, urllib.request
+import json, os, re, shutil, subprocess, tempfile, threading, time, uuid, urllib.request
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, Response, send_file, send_from_directory, after_this_request
 from flask_cors import CORS
@@ -207,7 +207,7 @@ def sweep():
             shutil.rmtree(j.get("dir", ""), ignore_errors=True)
             JOBS.pop(k, None)
 
-def run(jid, url, q, kind, start=0, end=0, precise=True, wm=False, fid=""):
+def run(jid, url, q, kind, start=0, end=0, precise=True, wm=False, fid="", up=False):
     j = JOBS[jid]
     tmp = tempfile.mkdtemp()
     j["dir"] = tmp
@@ -242,6 +242,17 @@ def run(jid, url, q, kind, start=0, end=0, precise=True, wm=False, fid=""):
         files = sorted((os.path.join(tmp, f) for f in os.listdir(tmp)
                         if not f.endswith((".part", ".ytdl", ".temp"))), key=os.path.getsize)
         path = files[-1]
+        if up and kind != "audio":            # forced 1080p: scale the short side to 1080 (bigger file, not extra detail)
+            j["stage"] = "processing"
+            outp = os.path.join(tmp, "up1080.mp4")
+            vf = "scale='if(lt(iw,ih),1080,-2)':'if(lt(iw,ih),-2,1080)':flags=lanczos"
+            r = subprocess.run(["ffmpeg", "-y", "-i", path, "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "16",
+                                "-pix_fmt", "yuv420p", "-c:a", "copy", "-movflags", "+faststart", outp],
+                               capture_output=True, timeout=900)
+            if r.returncode == 0 and os.path.exists(outp) and os.path.getsize(outp) > 0:
+                os.remove(path)
+                path = os.path.join(tmp, "src_1080.mp4")
+                os.rename(outp, path)
         name = re.sub(r"[^\w\- ]", "", d.get("title") or "video")[:60].strip() or "video"
         j.update(path=path, name=name + os.path.splitext(path)[1], size=os.path.getsize(path), state="ready", pct=100)
     except Exception as e:
@@ -265,13 +276,14 @@ def prepare():
     precise = bool(b.get("precise", True))
     wm = bool(b.get("wm", False))
     fid = str(b.get("fid") or "")
+    up = bool(b.get("up", False))
     with LOCK:
         sweep()
         if sum(1 for j in JOBS.values() if j["state"] == "running") >= 3:
             return jsonify(error="Server is busy. Try again in a minute."), 429
         jid = uuid.uuid4().hex[:12]
         JOBS[jid] = {"state": "running", "stage": "downloading", "pct": 0, "speed": 0, "t": time.time()}
-    threading.Thread(target=run, args=(jid, url, q, kind, start, end, precise, wm, fid), daemon=True).start()
+    threading.Thread(target=run, args=(jid, url, q, kind, start, end, precise, wm, fid, up), daemon=True).start()
     return jsonify(id=jid)
 
 @app.get("/api/job/<jid>")

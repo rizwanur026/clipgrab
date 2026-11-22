@@ -65,6 +65,7 @@ main{max-width:580px;margin:0 auto;padding:0 18px 70px}
 .field .lead .lg{width:24px;height:24px}
 .field input{flex:1;min-width:0;height:48px;background:none;border:0;outline:0;color:var(--text);font:500 1rem 'DM Sans'}
 .field input::placeholder{color:#6e74a8}
+.xbtn{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.1);color:var(--text);font-size:1rem;flex:none}
 .pastebtn{display:flex;align-items:center;gap:6px;padding:0 14px;height:42px;border-radius:14px;background:var(--g2);font-weight:700;font-size:.9rem}
 .pri{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:56px;margin-top:12px;border-radius:19px;background:var(--grad);font:700 1.02rem 'Sora',sans-serif;color:#fff;box-shadow:0 14px 34px rgba(160,92,255,.5),inset 0 1px 0 rgba(255,255,255,.35);position:relative;overflow:hidden}
 .pri::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.28),transparent);animation:shine 3.2s infinite}
@@ -271,6 +272,7 @@ main{max-width:580px;margin:0 auto;padding:0 18px 70px}
     <div class="field">
       <span class="lead" id="lead"><svg class="ic"><use href="#i-link"/></svg></span>
       <input id="url" type="url" inputmode="url" placeholder="Paste reel or video link" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="xbtn" id="uclear" type="button" aria-label="Clear" hidden>✕</button>
       <button class="pastebtn" id="paste" type="button"><svg class="ic" style="width:17px;height:17px"><use href="#i-paste"/></svg>Paste</button>
     </div>
     <button class="pri" id="fetch" type="button"><svg class="ic"><use href="#i-zap"/></svg>Get video</button>
@@ -326,6 +328,7 @@ main{max-width:580px;margin:0 auto;padding:0 18px 70px}
     <div class="field">
       <span class="lead" id="ylead"><svg class="ic"><use href="#i-link"/></svg></span>
       <input id="yurl" type="url" inputmode="url" placeholder="Paste YouTube link" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="xbtn" id="yclear" type="button" aria-label="Clear" hidden>✕</button>
       <button class="pastebtn" id="ypaste" type="button"><svg class="ic" style="width:17px;height:17px"><use href="#i-paste"/></svg>Paste</button>
     </div>
     <div class="seg" id="yeng" hidden>
@@ -432,7 +435,7 @@ const nat = (f, ...a) => { try { return window.ClipNative && typeof ClipNative[f
 const ic = (n, s) => `<svg class="ic"${s ? ` style="${s}"` : ""}><use href="#i-${n}"/></svg>`;
 const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const mmss = s => s ? Math.floor(s/60) + ":" + String(Math.round(s%60)).padStart(2,"0") : "";
-const fmtB = n => n ? (n >= 1e9 ? (n/1e9).toFixed(2) + " GB" : n >= 1e6 ? Math.round(n/1e6) + " MB" : Math.max(1, Math.round(n/1e3)) + " KB") : "";
+const fmtB = n => n ? (n >= 1e9 ? (n/1e9).toFixed(2) + " GB" : n >= 1e7 ? Math.round(n/1e6) + " MB" : n >= 1e6 ? (n/1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n/1e3)) + " KB") : "";
 const resLabel = h => h >= 4320 ? "8K" : h >= 2160 ? "4K" : h >= 1440 ? "2K" : h + "p";
 const isTikTok = u => /tiktok\.com/i.test(u);
 const plat = u => /youtube\.com|youtu\.be/i.test(u) ? "youtube" : /tiktok/i.test(u) ? "tiktok" : /instagram/i.test(u) ? "instagram" : /facebook|fb\.watch|fb\.com/i.test(u) ? "facebook" : "";
@@ -510,9 +513,16 @@ function autoRun(key, inp, btn) {
   });
 }
 autoRun("home", $("url"), $("fetch"));
+function wireClear(inp, btn, key, after) {
+  const sync = () => { btn.hidden = !inp.value; };
+  inp.addEventListener("input", sync);
+  btn.onclick = () => { inp.value = ""; autoLast[key] = ""; sync(); inp.dispatchEvent(new Event("input")); after && after(); inp.focus(); };
+  sync();
+}
+wireClear($("url"), $("uclear"), "home", () => { $("card").classList.remove("on"); say(""); });
 $("paste").onclick = async () => {
   try { const t = await navigator.clipboard.readText(); autoLast.home = ""; $("url").value = t; $("url").dispatchEvent(new Event("input")); }
-  catch { say("Clipboard is blocked. Paste the link manually."); }
+  catch { $("url").focus(); say("Tap and hold in the box, then tap Paste. It loads by itself."); }
 };
 $("fetch").onclick = async () => {
   const url = $("url").value.trim(); say("");
@@ -567,6 +577,7 @@ function showCard(d, url) {
     sub:[wmTop.h ? resLabel(wmTop.h) : "Original", "Watermark", wmTop.size ? "~" + fmtB(wmTop.size) : "size unknown"].filter(Boolean).join(" · "), cls:wmTop.h >= 2160 ? "k4" : ""});
   qs.filter(q => q !== wmTop).forEach(q => chips.push({v:String(q.sel), fid:q.fid || "", kind:"video", wm:!!q.wm, label:resLabel(q.h) + (q.wm ? " WM" : ""),
     sub:[q.wm ? "Watermark" : q.codec, q.size ? "~" + fmtB(q.size) : ""].filter(Boolean).join(" · "), cls:q.h >= 2160 ? "k4" : q.h >= 1440 ? "k2" : ""}));
+  if (tq && tq.h < 1080 && p !== "youtube") chips.push({v:"best", fid:tq.fid || "", up:true, kind:"video", label:"1080p ⬆", sub:"Upscaled · server · not sharper", cls:""});
   chips.push({v:"audio", kind:"audio", label:"MP3", sub:"Audio only", cls:"wide"});
   $("qs").innerHTML = chips.map((c, i) => `<button type="button" class="q ${c.cls}${i === 0 ? " on" : ""} ${c.v === "audio" ? "wide" : ""}" data-i="${i}"><b>${esc(c.label)}</b><small>${esc(c.sub || " ")}</small></button>`).join("");
   pick = chips[0];
@@ -591,9 +602,10 @@ const newId = () => "d" + Date.now().toString(36) + Math.random().toString(36).s
 $("dl").onclick = () => {
   if (!cur) return;
   const it = {id:newId(), url:cur.url, kind:pick.kind, q: pick.kind === "audio" ? "best" : pick.v,
-    qlabel: pick.kind === "audio" ? "MP3" : pick.v === "best" ? (topQ() ? resLabel(topQ().h) : "Best") : pick.label, wm: !!pick.wm, fid: pick.kind === "audio" ? "" : (pick.fid || ""),
+    qlabel: pick.kind === "audio" ? "MP3" : pick.v === "best" ? (topQ() ? resLabel(topQ().h) : "Best") : pick.label, wm: !!pick.wm, up: !!pick.up, fid: pick.kind === "audio" ? "" : (pick.fid || ""),
     title:cur.title, author:cur.author, thumb:cur.thumbnail, platform:cur.platform, t:Date.now()};
   if (cur.platform === "tiktok" && phoneOK() && ttLoggedIn()) it.engines = ["phone", "server"];
+  if (it.up) { it.engines = ["server"]; it.qlabel = "1080p (upscaled)"; }   // ffmpeg only runs on the server
   addItem(it);
 };
 $("cover").onclick = () => {
@@ -707,7 +719,7 @@ async function serverRun(it) {
   } else {
     let d, tries = 0;
     for (;;) {
-      const r = await fetch(API + "/api/prepare", {method:"POST", headers:H, body:JSON.stringify({url:it.url, q:it.q, kind:it.kind === "audio" ? "audio" : "video", start:it.start || 0, end:it.end || 0, precise:it.precise !== false, wm:!!it.wm, fid:it.fid || ""})});
+      const r = await fetch(API + "/api/prepare", {method:"POST", headers:H, body:JSON.stringify({url:it.url, q:it.q, kind:it.kind === "audio" ? "audio" : "video", start:it.start || 0, end:it.end || 0, precise:it.precise !== false, wm:!!it.wm, fid:it.fid || "", up:!!it.up})});
       d = await r.json().catch(() => ({}));
       if (r.status === 429 && tries++ < 60) { it.stage = "Waiting for a free slot…"; paint(it); await sleep(3000); if (dead()) return {ok:true}; continue; }
       if (!r.ok) return {ok:false, err:d.error || "Couldn’t start. Tap retry."};
@@ -824,9 +836,10 @@ const ystat = t => $("ystat").textContent = t || "";
 $("yurl").addEventListener("input", () => { const p = plat($("yurl").value); $("ylead").innerHTML = p === "youtube" ? logo(p) : ic("link"); });
 $("yurl").addEventListener("keydown", e => e.key === "Enter" && $("yfetch").click());
 autoRun("yt", $("yurl"), $("yfetch"));
+wireClear($("yurl"), $("yclear"), "yt", () => ymsg(""));
 $("ypaste").onclick = async () => {
   try { const t = await navigator.clipboard.readText(); autoLast.yt = ""; $("yurl").value = t; $("yurl").dispatchEvent(new Event("input")); }
-  catch { ymsg("Clipboard is blocked. Paste the link manually."); }
+  catch { $("yurl").focus(); ymsg("Tap and hold in the box, then tap Paste. It loads by itself."); }
 };
 
 const codecName = v => { v = String(v || "").toLowerCase(); return /^(avc|h264)/.test(v) ? "H.264" : /^(hev|hvc|h265|bytevc1)/.test(v) ? "H.265" : /^(vp9|vp09)/.test(v) ? "VP9" : /^(av01|av1)/.test(v) ? "AV1" : ""; };
