@@ -166,6 +166,8 @@ def info():
         thumbnail=d.get("thumbnail"),
         duration=d.get("duration"),
         qualities=qualities(d, "tiktok.com" in url, is_yt(url)),
+        raw=[{k: f.get(k) for k in ("format_id", "format_note", "width", "height", "vcodec", "acodec", "tbr",
+                                    "filesize", "filesize_approx", "ext")} for f in (d.get("formats") or [])][:60],
         chapters=[{"title": c.get("title"), "start": c.get("start_time"), "end": c.get("end_time")}
                   for c in (d.get("chapters") or [])][:40],
     )

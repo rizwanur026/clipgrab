@@ -448,6 +448,8 @@ public class YtNative {
           for (int i = 0; i < src.length(); i++) {
             JSONObject f = src.getJSONObject(i), c = new JSONObject();
             c.put("format_id", f.optString("format_id"));
+            c.put("format_note", f.optString("format_note", ""));
+            c.put("ext", f.optString("ext", ""));
             c.put("height", f.optInt("height", 0));
             c.put("width", f.optInt("width", 0));
             c.put("vcodec", f.optString("vcodec", "none"));

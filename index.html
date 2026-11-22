@@ -295,6 +295,9 @@ main{max-width:580px;margin:0 auto;padding:0 18px 70px}
       <div class="cauth" id="cauth"></div>
       <div class="lab">Quality</div>
       <div class="qs" id="qs"></div>
+      <button class="ghost" id="fmtbtn" type="button" style="margin-top:10px">All formats</button>
+      <pre id="fmtlist" hidden style="white-space:pre-wrap;font-size:11px;line-height:1.5;margin:8px 0 0;padding:10px;border-radius:12px;background:rgba(255,255,255,.05);user-select:text"></pre>
+      <button class="ghost" id="recheck" type="button" style="margin-top:10px" hidden>Check for better quality in 24h</button>
       <div class="cbtns" style="margin-top:18px">
         <button class="pri" id="dl" type="button" style="margin-top:0"><svg class="ic"><use href="#i-download"/></svg><span id="dltxt">Download</span></button>
         <button class="ghost" id="cover" type="button"><svg class="ic"><use href="#i-image"/></svg>Save cover image</button>
@@ -531,8 +534,26 @@ $("fetch").onclick = async () => {
   } catch (e) { autoLast.home = ""; say(e.message || "Something went wrong. Try again."); }
   $("sk").classList.remove("on"); $("fetch").disabled = false;
 };
+const fmtLines = fs => (fs || []).map(f => [f.format_id, (f.width && f.height) ? f.width + "x" + f.height : "audio", f.ext, f.vcodec && f.vcodec !== "none" ? f.vcodec.split(".")[0] : "", f.acodec && f.acodec !== "none" ? "+audio" : "",
+  f.tbr ? Math.round(f.tbr) + "kbps" : "", (f.filesize || f.filesize_approx) ? "~" + fmtB(f.filesize || f.filesize_approx) : "", f.format_note ? "[" + f.format_note + "]" : ""].filter(Boolean).join(" ")).join("\n") || "No format data";
+const RK = "cg_recheck";
+const rcGet = () => { try { return JSON.parse(localStorage.getItem(RK) || "[]"); } catch { return []; } };
+const rcSet = a => { try { localStorage.setItem(RK, JSON.stringify(a.slice(-10))); } catch {} };
+async function rcRun() {   // runs when the app opens: re-reads links whose 24h are up and tells you if a better file appeared
+  const due = rcGet().filter(x => x.at <= Date.now()), keep = rcGet().filter(x => x.at > Date.now());
+  if (!due.length) return; rcSet(keep);
+  for (const x of due.slice(0, 3)) {
+    try {
+      const d = phoneOK() ? await phoneInfo(x.url, () => {}) : await serverInfo(x.url);
+      const q = (d.qualities || []).find(q => !q.wm) || {h:0, size:0};
+      if (q.h > x.h || q.size > x.size * 1.3) toast("Better quality now: " + (x.title || "video") + " (" + resLabel(q.h) + ")");
+    } catch {}
+  }
+}
 function showCard(d, url) {
   const p = plat(url);
+  $("fmtlist").hidden = true; $("fmtlist").textContent = fmtLines(d.raw); $("fmtbtn").textContent = "All formats";
+  $("recheck").hidden = p !== "tiktok"; $("recheck").disabled = false; $("recheck").textContent = "Check for better quality in 24h";
   cur = {...d, url, platform: p}; qs = d.qualities || [];
   $("thumb").src = d.thumbnail || ""; $("tbg").src = d.thumbnail || "";
   $("tplat").innerHTML = p ? logo(p) + PNAME[p] : "";
@@ -557,6 +578,12 @@ function showCard(d, url) {
   dlLabel(); $("card").classList.add("on");
   setTimeout(() => $("card").scrollIntoView({behavior:"smooth", block:"start"}), 60);
 }
+$("fmtbtn").onclick = () => { const e = $("fmtlist"); e.hidden = !e.hidden; $("fmtbtn").textContent = e.hidden ? "All formats" : "Hide formats"; };
+$("recheck").onclick = () => {
+  if (!cur) return; const tq = topQ() || {h:0, size:0};
+  rcSet(rcGet().filter(x => x.url !== cur.url).concat({url:cur.url, title:cur.title, h:tq.h, size:tq.size || 0, at:Date.now() + 864e5}));
+  $("recheck").disabled = true; $("recheck").textContent = "Will check in 24h ✓ (open the app then)";
+};
 function dlLabel() {
   $("dltxt").textContent = pick.kind === "audio" ? "Download MP3" : "Download · " + (pick.v === "best" ? (topQ() ? resLabel(topQ().h) + " (Best)" : "Best") : pick.label);
 }
@@ -837,7 +864,7 @@ async function phoneInfo(url, stat = ystat) {
     if (j.state === "error") throw new Error(j.error || "The phone engine failed.");
     if (j.state === "done") {
       const d = JSON.parse(j.result);
-      return {title:d.title, author:d.uploader, thumbnail:d.thumbnail, duration:d.duration || 0, qualities:ytQualities(d, isTikTok(url), plat(url) === "youtube"), chapters:d.chapters || [], via:"phone"};
+      return {title:d.title, author:d.uploader, thumbnail:d.thumbnail, duration:d.duration || 0, qualities:ytQualities(d, isTikTok(url), plat(url) === "youtube"), chapters:d.chapters || [], raw:d.formats || [], via:"phone"};
     }
     stat(j.stage || "Working…");
   }
@@ -1074,7 +1101,8 @@ async function autoEngineUpdate() {
     }
   } catch {}
 }
-setTimeout(() => { if (phoneOK()) yt("warm"); }, 1500);   // start the on-phone engine in the background
+setTimeout(() => { if (phoneOK()) yt("warm"); }, 1500);
+setTimeout(() => { rcRun().catch(() => {}); }, 4000);   // start the on-phone engine in the background
 setTimeout(autoEngineUpdate, 5000);
 (async () => {
   route();
