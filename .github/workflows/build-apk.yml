@@ -50,13 +50,17 @@ jobs:
           import com.getcapacitor.BridgeActivity;
 
           public class MainActivity extends BridgeActivity {
+            private Enhancer enh; //AI
             @Override
             public void onCreate(Bundle b) {
               super.onCreate(b);
               getBridge().getWebView().addJavascriptInterface(new Native(), "ClipNative");
               getBridge().getWebView().addJavascriptInterface(new YtNative(this), "ClipYT"); //YT
+              enh = new Enhancer(this); getBridge().getWebView().addJavascriptInterface(enh, "ClipAI"); //AI
               if (android.os.Build.VERSION.SDK_INT >= 33) { try { requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 7); } catch (Exception e) {} }
             }
+
+            @Override public void onActivityResult(int rc, int res, Intent d) { super.onActivityResult(rc, res, d); if (enh != null) enh.onPicked(rc, res, d); } //AI
 
             class Native {
               private DownloadManager dm() { return (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE); }
@@ -179,6 +183,41 @@ jobs:
           grep -n "junkfood02\|useLegacyPackaging\|abiFilters\|CPP" android/app/build.gradle
           grep -n "minSdkVersion" android/variables.gradle
           ls -la android/app/src/main/jniLibs/arm64-v8a 2>/dev/null || true
+      - name: Add on-phone AI Enhance (Real-ESRGAN, ncnn + Vulkan)
+        run: |
+          set -e
+          cp android-extra/Enhancer.java android/app/src/main/java/com/clipgrab/app/Enhancer.java
+          mkdir -p android/app/src/main/cpp android/app/src/main/assets/ai
+          cp android-extra/cpp/CMakeLists.txt android-extra/cpp/enhance.cpp android/app/src/main/cpp/
+          # ncnn (prebuilt, Vulkan)
+          curl -fL --retry 3 -o ncnn.zip https://github.com/Tencent/ncnn/releases/download/20250503/ncnn-20250503-android-vulkan.zip
+          mkdir -p ncnn_x && unzip -q ncnn.zip -d ncnn_x
+          NC=$(find ncnn_x -type d -name arm64-v8a -path '*ncnn*' | head -1)
+          [ -n "$NC" ] || { echo "::error::arm64-v8a folder not found in the ncnn zip"; find ncnn_x -maxdepth 3; exit 1; }
+          mkdir -p android/app/src/main/cpp/ncnn
+          cp -r "$(dirname "$NC")"/* android/app/src/main/cpp/ncnn/
+          find android/app/src/main/cpp/ncnn -name 'ncnnConfig.cmake'
+          [ -f android/app/src/main/cpp/ncnn/arm64-v8a/lib/cmake/ncnn/ncnnConfig.cmake ] || { echo "::error::ncnnConfig.cmake not where expected"; exit 1; }
+          # Real-ESRGAN models
+          git clone --depth 1 https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan.git resr
+          for f in realesr-animevideov3-x2.param realesr-animevideov3-x2.bin; do
+            P=$(find resr -name "$f" | head -1)
+            [ -n "$P" ] || { echo "::error::model $f not found"; find resr -name '*.param' | head; exit 1; }
+            cp "$P" android/app/src/main/assets/ai/
+          done
+          ls -la android/app/src/main/assets/ai
+          python3 - <<'PY'
+          p = "android/app/build.gradle"
+          s = open(p).read()
+          a = "android {\n"
+          assert a in s
+          s = s.replace(a, a + '    externalNativeBuild { cmake { path file("src/main/cpp/CMakeLists.txt"); version "3.22.1" } } // AI\n', 1)
+          b = "defaultConfig {\n"
+          assert b in s
+          s = s.replace(b, b + '        externalNativeBuild { cmake { arguments "-DANDROID_STL=c++_static" } } // AI\n', 1)
+          open(p, "w").write(s)
+          PY
+          grep -n "AI$" android/app/build.gradle
       - name: Use fixed signing key
         run: |
           set -e
@@ -210,17 +249,32 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          if ! ./gradlew assembleDebug; then
-            echo "::warning::Build failed. Retrying without the newest extras (built-in merger, ffmpeg libc++ fix)."
+          ai_ok() {
+            SO=$(find app/build -name libclipenhance.so | head -1)
+            [ -n "$SO" ] || { echo "libclipenhance.so not built"; return 1; }
+            readelf -d "$SO" | grep NEEDED || true
+            if readelf -d "$SO" | grep NEEDED | grep -Eq 'libomp|libgomp'; then echo "libclipenhance.so needs libomp"; return 1; fi
+            return 0
+          }
+          if ./gradlew assembleDebug && ai_ok; then
+            echo "Built with AI Enhance"
+          else
+            echo "::warning::Build with AI Enhance failed or its check failed. Retrying without AI Enhance."
             cd ..
-            bash android-extra/strip-yt.sh new
+            bash android-extra/strip-ai.sh
             cd android
             if ! ./gradlew assembleDebug; then
-              echo "::warning::Build with the on-phone YouTube engine failed. Retrying without it (YouTube will use the server engine)."
+              echo "::warning::Build failed. Retrying without the newest extras (built-in merger, ffmpeg libc++ fix)."
               cd ..
-              bash android-extra/strip-yt.sh
+              bash android-extra/strip-yt.sh new
               cd android
-              ./gradlew assembleDebug
+              if ! ./gradlew assembleDebug; then
+                echo "::warning::Build with the on-phone YouTube engine failed. Retrying without it (YouTube will use the server engine)."
+                cd ..
+                bash android-extra/strip-yt.sh
+                cd android
+                ./gradlew assembleDebug
+              fi
             fi
           fi
           cp app/build/outputs/apk/debug/app-debug.apk ../ClipGrab.apk
