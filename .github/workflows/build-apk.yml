@@ -187,6 +187,7 @@ jobs:
         continue-on-error: true
         run: |
           set -e
+          trap 'echo "::warning::AI Enhance setup FAILED at line $LINENO of its step (the app will be built without AI)"' ERR
           cp android-extra/Enhancer.java android/app/src/main/java/com/clipgrab/app/Enhancer.java
           mkdir -p android/app/src/main/cpp android/app/src/main/assets/ai
           cp android-extra/cpp/CMakeLists.txt android-extra/cpp/enhance.cpp android/app/src/main/cpp/
@@ -278,9 +279,15 @@ jobs:
             if readelf -d "$SO" | grep NEEDED | grep -Eq 'libomp|libgomp'; then echo "libclipenhance.so needs libomp"; return 1; fi
             return 0
           }
-          if ./gradlew assembleDebug && ai_ok; then
+          if ./gradlew assembleDebug > ../gradle-ai.log 2>&1 && ai_ok; then
             echo "Built with AI Enhance"
+            echo "AI_STATE=yes" >> "$GITHUB_ENV"
           else
+            echo "AI_STATE=no" >> "$GITHUB_ENV"
+            echo "=========== WHY AI ENHANCE WAS DROPPED (search: AIERR) ==========="
+            grep -nE "error:|What went wrong|FAILED|CMake Error|ld.lld|undefined|not found|libomp" -A4 ../gradle-ai.log | head -120 | sed 's/^/AIERR /' || true
+            tail -40 ../gradle-ai.log | sed 's/^/AIERR-tail /'
+            echo "::warning::AI Enhance was dropped from this build. Open the Build APK log and search AIERR."
             echo "::warning::Build with AI Enhance failed or its check failed. Retrying without AI Enhance."
             cd ..
             bash android-extra/strip-ai.sh
@@ -315,6 +322,6 @@ jobs:
         with:
           tag_name: v${{ github.run_number }}
           name: ClipGrab v${{ github.run_number }}
-          body: "Signing certificate SHA-256: ${{ env.EXPECTED_SHA256 }}"
+          body: "AI Enhance in this APK: ${{ env.AI_STATE }}. Signing certificate SHA-256: ${{ env.EXPECTED_SHA256 }}"
           files: ClipGrab.apk
           make_latest: true
