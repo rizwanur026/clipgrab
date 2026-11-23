@@ -324,7 +324,31 @@ main{max-width:580px;margin:0 auto;padding:0 18px 70px}
 
 <!-- UPDATE -->
 <section class="page" id="p-enhance" hidden>
-  <div class="ucard">
+  <div class="ucard" id="ai-main" hidden>
+    <div class="uic"><svg class="ic"><use href="#i-image"/></svg></div>
+    <h2>AI Enhance</h2>
+    <p class="uv">Pick a video. The AI on your phone sharpens it and makes it bigger. Free, nothing is uploaded.</p>
+    <button class="ghost" id="ai-pick" type="button" style="margin-top:16px"><svg class="ic" style="width:18px;height:18px"><use href="#i-video"/></svg>Choose a video</button>
+    <div id="ai-info" hidden>
+      <p class="hint" id="ai-meta" style="margin-top:12px"></p>
+      <div class="qs" id="ai-qs" style="margin-top:12px"></div>
+      <p class="hint" id="ai-warn" style="margin-top:10px" hidden></p>
+      <button class="pri" id="ai-go" type="button"><svg class="ic" style="width:20px;height:20px"><use href="#i-zap"/></svg>Enhance</button>
+    </div>
+    <div id="ai-run" hidden>
+      <div class="pb"><i id="ai-bar"></i></div>
+      <p class="ps" id="ai-stage" style="margin-top:8px"></p>
+      <button class="ghost" id="ai-cancel" type="button">Cancel</button>
+      <p class="hint" style="margin-top:8px">You can leave the app; it keeps working. Keep the phone cool and plugged in for longer clips.</p>
+    </div>
+    <div id="ai-done" hidden>
+      <p class="uv" id="ai-dtxt" style="margin-top:14px"></p>
+      <button class="pri" id="ai-open" type="button">Open the enhanced video</button>
+      <button class="ghost" id="ai-share" type="button">Share</button>
+    </div>
+    <p class="ust" id="ai-err" hidden style="margin-top:12px"></p>
+  </div>
+  <div class="ucard" id="ai-alt">
     <div class="uic"><svg class="ic"><use href="#i-image"/></svg></div>
     <h2>AI Enhance</h2>
     <p class="uv">Make a clip sharper, up to 1080p–4K, 60 fps. Free.</p>
@@ -576,6 +600,64 @@ const fShare = it => it.uri ? yt("shareUri", it.uri, it.mime) : nat("share", it.
 const fExists = it => it.external ? true : it.uri ? yt("existsUri", it.uri) : nat("exists", it.dm);
 const fDelete = it => it.uri ? yt("deleteUri", it.uri) : nat("cancel", it.dm);
 const fileTag = it => `${it.qlabel}${it.clip ? ", clip" : ""}`;
+
+/* ---------- AI Enhance (runs on the phone) ---------- */
+const ai = (f, ...a) => { try { return window.ClipAI && typeof ClipAI[f] === "function" ? ClipAI[f](...a) : undefined; } catch { return undefined; } };
+const aiOK = () => ai("available") === true;
+let aiSrc = null, aiTarget = 1080, aiJob = null, aiTimer = null, aiItem = null;
+function aiShow(part) { ["ai-info", "ai-run", "ai-done"].forEach(k => { $(k).hidden = k !== part && !(part === "info+" && k === "ai-info"); }); }
+function aiErr(m) { $("ai-err").hidden = !m; $("ai-err").textContent = m || ""; }
+function aiInit() { const ok = aiOK(); $("ai-main").hidden = !ok; $("ai-alt").querySelector("h2").textContent = ok ? "Other ways (Google Colab)" : "AI Enhance"; }
+function aiRender() {
+  const r = aiSrc; if (!r) return;
+  const short = Math.min(r.w, r.h), opts = [1080, 1440].filter(t => t > short);
+  $("ai-meta").textContent = `${r.name} · ${r.w}×${r.h} · ${r.dur ? Math.round(r.dur / 1000) + " s · " : ""}${fmtB(r.size)}`;
+  if (!opts.length) { $("ai-qs").innerHTML = ""; $("ai-go").hidden = true; aiErr("This video is already " + short + "p or bigger. The AI works on smaller clips."); return; }
+  if (!opts.includes(aiTarget)) aiTarget = opts[0];
+  $("ai-qs").innerHTML = opts.map(t => `<button type="button" class="q${t === aiTarget ? " on" : ""}" data-t="${t}"><b>${t}p</b><small>${t === 1080 ? "Full HD" : "2K"}</small></button>`).join("");
+  $("ai-go").hidden = false; aiErr("");
+  const w = []; if (short >= 900) w.push("This clip is already large, so it will be slow."); if (r.dur > 60000) w.push("Long clips take a long time and heat the phone. 5–30 s is best.");
+  $("ai-warn").hidden = !w.length; $("ai-warn").textContent = w.join(" ");
+}
+$("ai-qs").onclick = e => { const b = e.target.closest("[data-t]"); if (!b) return; aiTarget = +b.dataset.t; aiRender(); };
+$("ai-pick").onclick = () => { aiErr(""); ai("pick"); };
+window.onAIPick = r => {
+  if (!r || r.cancelled) return;
+  if (r.error) { aiErr(r.error); return; }
+  aiSrc = r; aiShow("ai-info"); aiRender();
+};
+$("ai-go").onclick = () => {
+  if (!aiSrc || aiJob) return;
+  const base = String(aiSrc.name || "video").replace(/\.[^.]+$/, "").replace(/[^\w\-]+/g, "_").slice(0, 40) || "video";
+  const outName = `ClipGrab_AI_${base}_${aiTarget}p.mp4`;
+  const id = ai("start", aiSrc.src, JSON.stringify({target: aiTarget, outName}));
+  if (!id) { aiErr("Couldn’t start the AI."); return; }
+  aiJob = id; aiErr(""); aiShow("ai-run"); $("ai-bar").style.width = "0%"; $("ai-stage").textContent = "Starting…";
+  aiItem = {name: outName, title: aiSrc.name, q: aiTarget};
+  clearInterval(aiTimer); aiTimer = setInterval(aiPoll, 800);
+};
+$("ai-cancel").onclick = () => { if (aiJob) ai("cancel", aiJob); $("ai-stage").textContent = "Stopping…"; };
+function aiPoll() {
+  let s; try { s = JSON.parse(ai("poll", aiJob)); } catch { return; }
+  if (!s) return;
+  if (s.state === "run") {
+    $("ai-bar").style.width = (s.pct || 0) + "%";
+    const e = s.eta > 0 ? " · about " + (s.eta > 59 ? Math.ceil(s.eta / 60) + " min" : s.eta + " s") + " left" : "";
+    $("ai-stage").textContent = (s.stage || "Working…") + (s.pct ? " · " + s.pct + "%" : "") + e;
+    return;
+  }
+  clearInterval(aiTimer); aiJob = null;
+  if (s.state === "done") {
+    const it = {id:newId(), kind:"video", state:"done", title:"AI Enhanced · " + aiItem.title, name:s.name, mime:s.mime || "video/mp4", size:s.size, uri:s.uri, platform:"", qlabel:"AI " + aiItem.q + "p", t:Date.now(), tdone:Date.now(), via:"phone"};
+    items.unshift(it); persist(); updateBadge();
+    aiItem.done = it; aiShow("ai-done");
+    $("ai-dtxt").textContent = "Done. Saved in your Downloads folder (" + fmtB(s.size) + ").";
+  } else if (s.state === "cancelled") { aiShow("ai-info"); aiRender(); toast("Stopped"); }
+  else { aiShow("ai-info"); aiRender(); aiErr(s.error || "The AI stopped. Try a shorter clip."); }
+}
+$("ai-open").onclick = () => { if (aiItem && aiItem.done && fOpen(aiItem.done) !== true) toast("Couldn’t open it. Check Downloads."); };
+$("ai-share").onclick = () => { if (aiItem && aiItem.done && fShare(aiItem.done) !== true) toast("Couldn’t share this file."); };
+aiInit(); setTimeout(aiInit, 600);
 
 async function run(it) {
   const dead = () => !items.includes(it);

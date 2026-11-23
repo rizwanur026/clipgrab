@@ -70,7 +70,7 @@ public class DlService extends Service {
       Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, CH) : new Notification.Builder(this);
       b.setSmallIcon(android.R.drawable.stat_sys_download)
           .setContentTitle("ClipGrab")
-          .setContentText(k == 1 ? "Downloading 1 video…" : "Downloading " + k + " videos…")
+          .setContentText(k == 1 ? "Working in the background…" : "Working on " + k + " tasks…")
           .setOngoing(true);
       if (pi != null) b.setContentIntent(pi);
       Notification nf = b.build();
