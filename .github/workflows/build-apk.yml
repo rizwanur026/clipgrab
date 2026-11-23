@@ -184,6 +184,7 @@ jobs:
           grep -n "minSdkVersion" android/variables.gradle
           ls -la android/app/src/main/jniLibs/arm64-v8a 2>/dev/null || true
       - name: Add on-phone AI Enhance (Real-ESRGAN, ncnn + Vulkan)
+        continue-on-error: true
         run: |
           set -e
           cp android-extra/Enhancer.java android/app/src/main/java/com/clipgrab/app/Enhancer.java
@@ -199,12 +200,33 @@ jobs:
           find android/app/src/main/cpp/ncnn -name 'ncnnConfig.cmake'
           [ -f android/app/src/main/cpp/ncnn/arm64-v8a/lib/cmake/ncnn/ncnnConfig.cmake ] || { echo "::error::ncnnConfig.cmake not where expected"; exit 1; }
           # Real-ESRGAN models
-          git clone --depth 1 https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan.git resr
-          for f in realesr-animevideov3-x2.param realesr-animevideov3-x2.bin; do
-            P=$(find resr -name "$f" | head -1)
-            [ -n "$P" ] || { echo "::error::model $f not found"; find resr -name '*.param' | head; exit 1; }
-            cp "$P" android/app/src/main/assets/ai/
-          done
+          M=android/app/src/main/assets/ai
+          find_models() {
+            for f in realesr-animevideov3-x2.param realesr-animevideov3-x2.bin; do
+              P=$(find "$1" -name "$f" 2>/dev/null | head -1)
+              [ -n "$P" ] || return 1
+              cp "$P" "$M/"
+            done
+          }
+          GOT=0
+          git clone --depth 1 https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan.git resr || true
+          if find_models resr; then GOT=1; fi
+          if [ "$GOT" = 0 ]; then
+            echo "Models are not in the repo; trying the release zips"
+            for U in \
+              https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesrgan-ncnn-vulkan-20220424-ubuntu.zip \
+              https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesrgan-ncnn-vulkan-20220424-windows.zip \
+              https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesrgan-ncnn-vulkan-20220424-macos.zip; do
+              rm -rf rz rz.zip; mkdir rz
+              if curl -fL --retry 2 -o rz.zip "$U" && unzip -q rz.zip -d rz && find_models rz; then GOT=1; break; fi
+              echo "no luck with $U"
+            done
+          fi
+          if [ "$GOT" = 0 ]; then
+            echo "::error::Real-ESRGAN animevideov3 x2 model files not found"
+            find resr rz -name '*.param' 2>/dev/null | head -20
+            exit 1
+          fi
           ls -la android/app/src/main/assets/ai
           python3 - <<'PY'
           p = "android/app/build.gradle"
