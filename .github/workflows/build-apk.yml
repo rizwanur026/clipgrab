@@ -229,12 +229,27 @@ jobs:
             exit 1
           fi
           ls -la android/app/src/main/assets/ai
+          # ncnn 20250503 was built with NDK r28 (libc++ 19). The runner's default NDK 25 has an older libc++ and the link fails
+          # (undefined std::__ndk1::__libcpp_verbose_abort, stream vtables). So build the AI library with NDK 28.
+          NDKV=$(ls "$ANDROID_HOME/ndk" 2>/dev/null | sort -V | tail -1)
+          echo "NDKs on the runner: $(ls "$ANDROID_HOME/ndk" | tr '\n' ' ')"
+          if [ -z "$NDKV" ] || [ "${NDKV%%.*}" -lt 28 ]; then
+            SM=$(ls "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | tail -1)
+            [ -n "$SM" ] || { echo "::error::sdkmanager not found"; exit 1; }
+            yes | "$SM" --licenses >/dev/null 2>&1 || true
+            "$SM" --install "ndk;28.2.13676358"
+            NDKV=28.2.13676358
+          fi
+          echo "Using NDK $NDKV for the AI library"
+          echo "NDKV=$NDKV" >> "$GITHUB_ENV"
+          export NDKV
           python3 - <<'PY'
+          import os
           p = "android/app/build.gradle"
           s = open(p).read()
           a = "android {\n"
           assert a in s
-          s = s.replace(a, a + '    externalNativeBuild { cmake { path file("src/main/cpp/CMakeLists.txt"); version "3.22.1" } } // AI\n', 1)
+          s = s.replace(a, a + '    ndkVersion "' + os.environ["NDKV"] + '" // AI\n    externalNativeBuild { cmake { path file("src/main/cpp/CMakeLists.txt"); version "3.22.1" } } // AI\n', 1)
           b = "defaultConfig {\n"
           assert b in s
           s = s.replace(b, b + '        externalNativeBuild { cmake { arguments "-DANDROID_STL=c++_static" } } // AI\n', 1)
