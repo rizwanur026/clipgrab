@@ -317,7 +317,7 @@ public final class Enhancer {
 
     j.stage = "Starting the AI…";
     File[] mf = modelFiles();
-    int tile = 256;
+    int tile = 128;   // small pieces keep the phone's screen responsive
     int rc = nInit(mf[0].getAbsolutePath(), mf[1].getAbsolutePath(), MODEL_SCALE, tile);
     if (rc == -1) { initErr = "no Vulkan"; throw new Exception("This phone’s graphics chip doesn’t support Vulkan, so the AI can’t run here."); }
     if (rc != 0) { initErr = "model " + rc; throw new Exception("Couldn’t load the AI model (" + rc + ")"); }
@@ -476,6 +476,7 @@ public final class Enhancer {
             if (di.size > 0) {
               Image img = dec.getOutputImage(ox);
               if (img == null) { dec.releaseOutputBuffer(ox, false); throw new Exception("This phone’s decoder gave a picture format I can’t read"); }
+              final long fs = System.currentTimeMillis();
               toArgb(img, inW, inH, argbIn, colour, planeCache);
               dec.releaseOutputBuffer(ox, false);
 
@@ -513,6 +514,8 @@ public final class Enhancer {
               j.pct = (int) Math.min(99, frames * 100 / total);
               j.eta = Math.max(0, (long) (el / (double) frames * Math.max(0, total - frames) / 1000.0));
               j.stage = "Enhancing frame " + frames + " of ~" + total;
+              // give the GPU a rest so the phone does not freeze
+              try { Thread.sleep(Math.min(1500, Math.max(60, (System.currentTimeMillis() - fs) / 2))); } catch (InterruptedException ie) { throw new Cancelled(); }
             } else {
               dec.releaseOutputBuffer(ox, false);
             }

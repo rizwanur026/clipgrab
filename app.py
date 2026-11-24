@@ -158,6 +158,13 @@ def index():
             return send_from_directory(d, "index.html")
     return "index.html is missing from the repo.", 404
 
+@app.get("/enhance")
+def enhance_page():
+    for d in (BASE, os.path.join(BASE, "static")):
+        if os.path.exists(os.path.join(d, "enhance.html")):
+            return send_from_directory(d, "enhance.html")
+    return "enhance.html is missing from the repo.", 404
+
 @app.post("/api/info")
 def info():
     url = (request.json or {}).get("url", "").strip()
