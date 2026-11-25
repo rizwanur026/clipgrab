@@ -50,17 +50,14 @@ jobs:
           import com.getcapacitor.BridgeActivity;
 
           public class MainActivity extends BridgeActivity {
-            private Enhancer enh; //AI
             @Override
             public void onCreate(Bundle b) {
               super.onCreate(b);
               getBridge().getWebView().addJavascriptInterface(new Native(), "ClipNative");
               getBridge().getWebView().addJavascriptInterface(new YtNative(this), "ClipYT"); //YT
-              enh = new Enhancer(this); getBridge().getWebView().addJavascriptInterface(enh, "ClipAI"); //AI
               if (android.os.Build.VERSION.SDK_INT >= 33) { try { requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 7); } catch (Exception e) {} }
             }
 
-            @Override public void onActivityResult(int rc, int res, Intent d) { super.onActivityResult(rc, res, d); if (enh != null) enh.onPicked(rc, res, d); } //AI
 
             class Native {
               private DownloadManager dm() { return (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE); }
@@ -183,79 +180,6 @@ jobs:
           grep -n "junkfood02\|useLegacyPackaging\|abiFilters\|CPP" android/app/build.gradle
           grep -n "minSdkVersion" android/variables.gradle
           ls -la android/app/src/main/jniLibs/arm64-v8a 2>/dev/null || true
-      - name: Add on-phone AI Enhance (Real-ESRGAN, ncnn + Vulkan)
-        continue-on-error: true
-        run: |
-          set -e
-          trap 'echo "::warning::AI Enhance setup FAILED at line $LINENO of its step (the app will be built without AI)"' ERR
-          cp android-extra/Enhancer.java android/app/src/main/java/com/clipgrab/app/Enhancer.java
-          mkdir -p android/app/src/main/cpp android/app/src/main/assets/ai
-          cp android-extra/cpp/CMakeLists.txt android-extra/cpp/enhance.cpp android/app/src/main/cpp/
-          # ncnn (prebuilt, Vulkan)
-          curl -fL --retry 3 -o ncnn.zip https://github.com/Tencent/ncnn/releases/download/20250503/ncnn-20250503-android-vulkan.zip
-          mkdir -p ncnn_x && unzip -q ncnn.zip -d ncnn_x
-          NC=$(find ncnn_x -type d -name arm64-v8a -path '*ncnn*' | head -1)
-          [ -n "$NC" ] || { echo "::error::arm64-v8a folder not found in the ncnn zip"; find ncnn_x -maxdepth 3; exit 1; }
-          mkdir -p android/app/src/main/cpp/ncnn
-          cp -r "$(dirname "$NC")"/* android/app/src/main/cpp/ncnn/
-          find android/app/src/main/cpp/ncnn -name 'ncnnConfig.cmake'
-          [ -f android/app/src/main/cpp/ncnn/arm64-v8a/lib/cmake/ncnn/ncnnConfig.cmake ] || { echo "::error::ncnnConfig.cmake not where expected"; exit 1; }
-          # Real-ESRGAN models
-          M=android/app/src/main/assets/ai
-          find_models() {
-            for f in realesr-animevideov3-x2.param realesr-animevideov3-x2.bin; do
-              P=$(find "$1" -name "$f" 2>/dev/null | head -1)
-              [ -n "$P" ] || return 1
-              cp "$P" "$M/"
-            done
-          }
-          GOT=0
-          git clone --depth 1 https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan.git resr || true
-          if find_models resr; then GOT=1; fi
-          if [ "$GOT" = 0 ]; then
-            echo "Models are not in the repo; trying the release zips"
-            for U in \
-              https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesrgan-ncnn-vulkan-20220424-ubuntu.zip \
-              https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesrgan-ncnn-vulkan-20220424-windows.zip \
-              https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesrgan-ncnn-vulkan-20220424-macos.zip; do
-              rm -rf rz rz.zip; mkdir rz
-              if curl -fL --retry 2 -o rz.zip "$U" && unzip -q rz.zip -d rz && find_models rz; then GOT=1; break; fi
-              echo "no luck with $U"
-            done
-          fi
-          if [ "$GOT" = 0 ]; then
-            echo "::error::Real-ESRGAN animevideov3 x2 model files not found"
-            find resr rz -name '*.param' 2>/dev/null | head -20
-            exit 1
-          fi
-          ls -la android/app/src/main/assets/ai
-          # ncnn 20250503 was built with NDK r28 (libc++ 19). The runner's default NDK 25 has an older libc++ and the link fails
-          # (undefined std::__ndk1::__libcpp_verbose_abort, stream vtables). So build the AI library with NDK 28.
-          NDKV=$(ls "$ANDROID_HOME/ndk" 2>/dev/null | sort -V | tail -1)
-          echo "NDKs on the runner: $(ls "$ANDROID_HOME/ndk" | tr '\n' ' ')"
-          if [ -z "$NDKV" ] || [ "${NDKV%%.*}" -lt 28 ]; then
-            SM=$(ls "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | tail -1)
-            [ -n "$SM" ] || { echo "::error::sdkmanager not found"; exit 1; }
-            yes | "$SM" --licenses >/dev/null 2>&1 || true
-            "$SM" --install "ndk;28.2.13676358"
-            NDKV=28.2.13676358
-          fi
-          echo "Using NDK $NDKV for the AI library"
-          echo "NDKV=$NDKV" >> "$GITHUB_ENV"
-          export NDKV
-          python3 - <<'PY'
-          import os
-          p = "android/app/build.gradle"
-          s = open(p).read()
-          a = "android {\n"
-          assert a in s
-          s = s.replace(a, a + '    ndkVersion "' + os.environ["NDKV"] + '" // AI\n    externalNativeBuild { cmake { path file("src/main/cpp/CMakeLists.txt"); version "3.22.1" } } // AI\n', 1)
-          b = "defaultConfig {\n"
-          assert b in s
-          s = s.replace(b, b + '        externalNativeBuild { cmake { arguments "-DANDROID_STL=c++_static" } } // AI\n', 1)
-          open(p, "w").write(s)
-          PY
-          grep -n "AI$" android/app/build.gradle
       - name: Use fixed signing key
         run: |
           set -e
@@ -287,38 +211,17 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ai_ok() {
-            SO=$(find app/build -name libclipenhance.so | head -1)
-            [ -n "$SO" ] || { echo "libclipenhance.so not built"; return 1; }
-            readelf -d "$SO" | grep NEEDED || true
-            if readelf -d "$SO" | grep NEEDED | grep -Eq 'libomp|libgomp'; then echo "libclipenhance.so needs libomp"; return 1; fi
-            return 0
-          }
-          if ./gradlew assembleDebug > ../gradle-ai.log 2>&1 && ai_ok; then
-            echo "Built with AI Enhance"
-            echo "AI_STATE=yes" >> "$GITHUB_ENV"
-          else
-            echo "AI_STATE=no" >> "$GITHUB_ENV"
-            echo "=========== WHY AI ENHANCE WAS DROPPED (search: AIERR) ==========="
-            grep -nE "error:|What went wrong|FAILED|CMake Error|ld.lld|undefined|not found|libomp" -A4 ../gradle-ai.log | head -120 | sed 's/^/AIERR /' || true
-            tail -40 ../gradle-ai.log | sed 's/^/AIERR-tail /'
-            echo "::warning::AI Enhance was dropped from this build. Open the Build APK log and search AIERR."
-            echo "::warning::Build with AI Enhance failed or its check failed. Retrying without AI Enhance."
+          if ! ./gradlew assembleDebug; then
+            echo "::warning::Build failed. Retrying without the newest extras (built-in merger, ffmpeg libc++ fix)."
             cd ..
-            bash android-extra/strip-ai.sh
+            bash android-extra/strip-yt.sh new
             cd android
             if ! ./gradlew assembleDebug; then
-              echo "::warning::Build failed. Retrying without the newest extras (built-in merger, ffmpeg libc++ fix)."
+              echo "::warning::Build with the on-phone YouTube engine failed. Retrying without it (YouTube will use the server engine)."
               cd ..
-              bash android-extra/strip-yt.sh new
+              bash android-extra/strip-yt.sh
               cd android
-              if ! ./gradlew assembleDebug; then
-                echo "::warning::Build with the on-phone YouTube engine failed. Retrying without it (YouTube will use the server engine)."
-                cd ..
-                bash android-extra/strip-yt.sh
-                cd android
-                ./gradlew assembleDebug
-              fi
+              ./gradlew assembleDebug
             fi
           fi
           cp app/build/outputs/apk/debug/app-debug.apk ../ClipGrab.apk
@@ -337,6 +240,6 @@ jobs:
         with:
           tag_name: v${{ github.run_number }}
           name: ClipGrab v${{ github.run_number }}
-          body: "AI Enhance in this APK: ${{ env.AI_STATE }}. Signing certificate SHA-256: ${{ env.EXPECTED_SHA256 }}"
+          body: "Signing certificate SHA-256: ${{ env.EXPECTED_SHA256 }}"
           files: ClipGrab.apk
           make_latest: true
