@@ -4,7 +4,6 @@
 #   strip-yt.sh     : remove the whole on-phone YouTube engine (YouTube then uses the server engine only)
 set -e
 cd "$(dirname "$0")/.."
-bash android-extra/strip-ai.sh
 APP=android/app/src/main/java/com/clipgrab/app
 rm -f "$APP/Mux.java" "$APP/DlService.java"
 sed -i 's#<service android:name="\.DlService"[^>]*/>##' android/app/src/main/AndroidManifest.xml
